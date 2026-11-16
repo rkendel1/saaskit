@@ -8,7 +8,7 @@ import { fail, type MutationCtx, type QueryCtx } from "@feltdb/feltkit";
 import { audit, invoices, reservations, subscriptions, usageCounters } from "./app.js";
 import { defaultPlan, planOf, priceOf, type Catalog, type Plan } from "./_catalog.js";
 import { catalogAt, createInvoice, getAccount, latestPublished, liveGrants, notify, planPrice, subscriptionLine, type Line } from "./_commerce.js";
-import { addInterval, canTransition, DAY, overageCharge, periodKey, type SubscriptionState } from "./_engine.js";
+import { addInterval, canTransition, DAY, periodKey, unbilledOverage, type SubscriptionState } from "./_engine.js";
 import { openCheckout, requestCharge } from "./_payments.js";
 
 export const NOTICE_DAYS = 3;
@@ -47,7 +47,7 @@ async function overageLines(ctx: MutationCtx, accountId: string, catalog: Catalo
     let allowance = plan.entitlements[feature.key] ?? 0;
     if (typeof allowance === "number") allowance += grantRows.filter((g) => g.feature === feature.key).reduce((a, g) => a + (typeof g.value === "number" ? g.value : 0), 0);
     const rule = plan.overage.find((o) => o.meter === c.meter);
-    const charge = overageCharge(allowance as number | null, c.used, rule);
+    const charge = unbilledOverage(allowance as number | null, c.used, c.billedUnits ?? 0, rule);
     toMark.push(c.id);
     if (charge.amount > 0) lines.push({ kind: "overage", description: `${feature.name}: ${charge.units} beyond ${allowance}`, quantity: charge.units, unitAmount: rule?.unitAmount ?? 0, amount: charge.amount, meter: c.meter, periodStart: start, periodEnd: end });
   }

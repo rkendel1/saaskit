@@ -90,6 +90,14 @@ export function overageCharge(allowance: number | null, used: number, rule: Over
   return { units, amount: Math.ceil(units / per) * (rule.unitAmount ?? 0) };
 }
 
+/** Overage not yet billed: units past the allowance minus units already invoiced this period. */
+export function unbilledOverage(allowance: number | null, used: number, billedUnits: number, rule: Overage | undefined) {
+  if (allowance === null || !rule) return { units: 0, amount: 0 };
+  const units = Math.max(used - allowance - billedUnits, 0);
+  if (rule.policy !== "charge" || units === 0) return { units, amount: 0 };
+  return { units, amount: Math.ceil(units / (rule.perUnits ?? 1)) * (rule.unitAmount ?? 0) };
+}
+
 export function applyDiscount(amount: number, percentOff: number | undefined): { discount: number; total: number } {
   if (!percentOff || amount <= 0) return { discount: 0, total: amount };
   const discount = Math.floor((amount * percentOff) / 100);

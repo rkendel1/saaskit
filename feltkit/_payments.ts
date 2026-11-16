@@ -8,7 +8,7 @@
  */
 import type { MutationCtx } from "@feltdb/feltkit";
 import { accounts, audit, checkouts, grants, invoices, paymentAttempts, subscriptions } from "./app.js";
-import { catalogAt, notify, planPrice, type AccountDoc, type SubscriptionDoc } from "./_commerce.js";
+import { catalogAt, notify, planPrice, releaseOverageBilled, type AccountDoc, type SubscriptionDoc } from "./_commerce.js";
 import { addInterval, DAY, periodKey } from "./_engine.js";
 
 type Invoice = NonNullable<typeof invoices.$doc>;
@@ -128,6 +128,7 @@ export async function applyFailure(ctx: MutationCtx, invoice: Invoice, reason: s
     // An off-session upgrade charge failed: the upgrade does not happen and its invoice is void.
     await ctx.db.patch(subscriptions, sub.id, { pending: undefined, updatedAt: now });
     await ctx.db.patch(invoices, invoice.id, { status: "void", voidedAt: now, nextAttemptAt: undefined });
+    await releaseOverageBilled(ctx, invoice);
     await audit.record(ctx, { subject: "subscription", id: invoice.accountId, type: "subscription.upgrade_failed", data: { invoiceId: invoice.id, reason } });
     return "upgrade abandoned";
   }

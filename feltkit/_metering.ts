@@ -106,6 +106,7 @@ export async function consume(ctx: MutationCtx, input: ConsumeInput) {
   if (!decision.allowed) deny(decision);
   const cost = decision.estimatedCost ?? 0;
   let spend: Awaited<ReturnType<typeof agentSpendFor>> | null = null;
+  let authorityDecision: { decisionId: string | null; delegationId: string | null } | null = null;
   if (agentPolicy && cost > 0) {
     spend = await agentSpendFor(ctx, input.accountId, input.actor.id, state.periodKey);
     const spent = spend?.spent ?? 0;
@@ -115,6 +116,12 @@ export async function consume(ctx: MutationCtx, input: ConsumeInput) {
     if (spent + cost > agentPolicy.budgetPerPeriod) {
       fail("FAILED_PRECONDITION", `Agent ${input.actor.id} would exceed its budget for this period (${spent + cost} > ${agentPolicy.budgetPerPeriod}).`, { hint: "AGENT_BUDGET_EXHAUSTED", decision, cost, spent });
     }
+    // Spending on someone's behalf needs THEIR live delegation at AuthBoundry, independent of the policy above.
+    const delegation = await ctx.authority.decide({ capability: AGENT_SPEND_CAPABILITY, onBehalfOf: authorityPrincipal(agentPolicy.principalOwner), context: { accountId: input.accountId, agentId: input.actor.id, meter: input.meter, cost: String(cost) } });
+    if (!delegation.allowed) {
+      fail(delegation.outcome === "unavailable" ? "UNAVAILABLE" : "FORBIDDEN", `${agentPolicy.principalOwner} has not delegated spending authority to agents (AuthBoundry: ${delegation.reason ?? delegation.outcome}).`, { hint: "AGENT_DELEGATION_MISSING", decisionId: delegation.decisionId, outcome: delegation.outcome });
+    }
+    authorityDecision = { decisionId: delegation.decisionId, delegationId: delegation.delegationId };
   }
 
   const now = Date.now();
@@ -151,10 +158,21 @@ export async function consume(ctx: MutationCtx, input: ConsumeInput) {
     else await ctx.db.insert(agentSpend, { accountId: input.accountId, agentId: input.actor.id, periodKey: state.periodKey, spent: cost, operations: 1, units: input.quantity, updatedAt: now });
     if (cost > 0) {
       notify(ctx, account, "agent.spend", `Agent ${input.actor.id} incurred a charge`, { agentId: input.actor.id, cost, meter: input.meter }, `${eventId}`, [agentPolicy.principalOwner]);
-      await audit.record(ctx, { subject: "agent", id: `${input.accountId}:${input.actor.id}`, type: "agent.spent", data: { cost, meter: input.meter, eventId, onBehalfOf: agentPolicy.principalOwner } });
+      await audit.record(ctx, { subject: "agent", id: `${input.accountId}:${input.actor.id}`, type: "agent.spent", data: { cost, meter: input.meter, eventId, onBehalfOf: agentPolicy.principalOwner, authorityDecisionId: authorityDecision?.decisionId ?? null, delegationId: authorityDecision?.delegationId ?? null } });
     }
   }
   return { duplicate: false, event: (await ctx.db.get(usageEvents, eventId))!, decision };
+}
+
+/** The AuthBoundry capability a person delegates so agents may incur charges for them. */
+export const AGENT_SPEND_CAPABILITY = "billing.agentspend";
+/**
+ * The AuthBoundry principal of an application person. FeltKit maps grants with its default
+ * `user:<id>`, but ctx.authority.decide takes onBehalfOf verbatim, so the application must apply
+ * the same mapping itself (FELTKIT_EXPERIENCE.md, gap FK-07).
+ */
+export function authorityPrincipal(id: string) {
+  return `user:${id}`;
 }
 
 export async function agentPolicyFor(ctx: Ctx, accountId: string, agentId: string) {

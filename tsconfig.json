@@ -7,10 +7,11 @@
     "jsx": "react-jsx",
     "strict": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["src", "feltkit", "tests", "vite.config.ts"]
+  "include": ["src", "feltkit", "components", "tests", "vite.config.ts"]
 }

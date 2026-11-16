@@ -7,9 +7,9 @@
  */
 import { fail } from "@feltdb/feltkit";
 import type { MutationCtx, QueryCtx } from "@feltdb/feltkit";
-import { accounts, app, audit, catalogVersions, grants, INVOICE_SEQUENCE, invoices, subscriptions } from "./app.js";
+import { accounts, app, audit, catalogVersions, grants, INVOICE_SEQUENCE, invoices, subscriptions, usageCounters } from "./app.js";
 import { defaultPlan, planOf, priceOf, type Catalog, type Plan, type Price } from "./_catalog.js";
-import { addInterval, applyDiscount, effectiveEntitlements, periodAmount, periodKey, type GrantInput, type SubscriptionState } from "./_engine.js";
+import { addInterval, applyDiscount, effectiveEntitlements, periodAmount, periodKey, unbilledOverage, type GrantInput, type SubscriptionState } from "./_engine.js";
 
 type Ctx = QueryCtx | MutationCtx;
 export type SubscriptionDoc = NonNullable<Awaited<ReturnType<typeof getSubscription>>>;
@@ -139,5 +139,51 @@ export function subscriptionLine(plan: Plan, price: Price, seats: number, start:
 export function notify(ctx: MutationCtx, account: { ownerId: string; accountId: string }, type: string, title: string, data: Record<string, unknown>, key: string, also: string[] = []) {
   for (const recipient of new Set([account.ownerId, ...also])) {
     ctx.afterCommit.notifications.send({ recipient, type, title, data: { accountId: account.accountId, ...data }, idempotencyKey: `${type}:${key}:${recipient}` });
+  }
+}
+
+// ─── Mid-period overage settlement ─────────────────────────────────────────────────────────────
+
+/**
+ * Overage accrued so far this period that no invoice has covered yet, priced under the terms the
+ * account is on NOW. An upgrade bills these before the new plan's larger allowance applies, so
+ * usage incurred under the old terms is never silently forgiven or re-priced.
+ */
+export async function accruedOverageLines(ctx: Ctx, accountId: string): Promise<Line[]> {
+  const state = await commercialState(ctx, accountId);
+  const counters = await ctx.db.find(usageCounters, { accountId, periodKey: state.periodKey });
+  const lines: Line[] = [];
+  for (const e of state.entitlements) {
+    if (e.type !== "allowance" || !e.overage) continue;
+    const c = counters.find((x) => x.meter === e.meter);
+    if (!c || c.invoicedAt) continue;
+    const u = unbilledOverage(e.value as number | null, c.used, c.billedUnits ?? 0, e.overage);
+    if (u.amount > 0) lines.push({ kind: "overage", description: `${e.name}: ${u.units} beyond ${e.value} (${state.plan.name} terms, to date)`, quantity: u.units, unitAmount: e.overage.unitAmount ?? 0, amount: u.amount, meter: e.meter, periodStart: state.sub.currentPeriodStart, periodEnd: Date.now() });
+  }
+  return lines;
+}
+
+/** Record that an invoice billed these overage units (or closed the period), so they are never billed again. */
+export async function markOverageBilled(ctx: MutationCtx, accountId: string, pk: string, lines: Line[], invoiceId: string, closePeriod: boolean) {
+  for (const l of lines) {
+    if (l.kind !== "overage" || !l.meter) continue;
+    const [c] = await ctx.db.find(usageCounters, { accountId, meter: l.meter, periodKey: pk }, { limit: 1 });
+    if (!c) continue;
+    await ctx.db.patch(usageCounters, c.id, closePeriod ? { invoicedAt: Date.now(), invoiceId } : { billedUnits: (c.billedUnits ?? 0) + l.quantity, updatedAt: Date.now() });
+  }
+  if (closePeriod) for (const c of await ctx.db.find(usageCounters, { accountId, periodKey: pk })) if (!c.invoicedAt) await ctx.db.patch(usageCounters, c.id, { invoicedAt: Date.now(), invoiceId });
+}
+
+/** A voided invoice gives its overage back to be billed later. */
+export async function releaseOverageBilled(ctx: MutationCtx, invoice: { id: string; accountId: string; lines: Line[] }) {
+  for (const c of await ctx.db.find(usageCounters, { accountId: invoice.accountId })) {
+    if (c.invoiceId === invoice.id) await ctx.db.patch(usageCounters, c.id, { invoicedAt: undefined, invoiceId: undefined, updatedAt: Date.now() });
+  }
+  const sub = await getSubscription(ctx, invoice.accountId);
+  if (!sub) return;
+  for (const l of invoice.lines) {
+    if (l.kind !== "overage" || !l.meter) continue;
+    const [c] = await ctx.db.find(usageCounters, { accountId: invoice.accountId, meter: l.meter, periodKey: periodKey(sub.currentPeriodStart) }, { limit: 1 });
+    if (c && (c.billedUnits ?? 0) > 0 && !c.invoiceId) await ctx.db.patch(usageCounters, c.id, { billedUnits: Math.max((c.billedUnits ?? 0) - l.quantity, 0), updatedAt: Date.now() });
   }
 }

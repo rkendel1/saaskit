@@ -65,6 +65,13 @@ export const app = feltkit({
     webhooks: { events: ["subscription.updated", "invoice.paid", "invoice.payment_failed", "usage.threshold", "entitlements.changed"] },
     jobs: true,
   },
+  authority: {
+    local: true,
+    application: "saaskit",
+    capabilities: ["billing.agentspend"],
+    checkCredential: "credential-ref:authboundry-check",
+    executor: { principal: "agent:saaskit", type: "agent", credential: "credential-ref:authboundry-executor" },
+  },
   components: {
     payments: {
       entry: "components/payments.ts",
@@ -312,6 +319,8 @@ export const usageCounters = app.collection(
     /** Set when the period's overage was put on an invoice: invoiced usage. */
     invoicedAt: s.optional(s.number()),
     invoiceId: s.optional(s.string()),
+    /** Overage units of this period already put on an invoice mid-period (an upgrade settles them under the old plan). */
+    billedUnits: s.optional(s.number()),
     updatedAt: s.number(),
   },
   { unique: [["accountId", "meter", "periodKey"]], indexes: [{ fields: ["accountId"] }] },

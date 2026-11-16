@@ -6,11 +6,11 @@
  *                                 what single-operation limit (this module).
  * An agent can request a purchase; only a person with billing.manage can approve it.
  */
-import { fail, s } from "@feltdb/feltkit";
+import { fail, s, type MutationCtx } from "@feltdb/feltkit";
 import { agentPolicies, agentSpend, app, audit, spendRequests, usageEvents } from "./app.js";
 import { callerAccountId, catalogAt, commercialState, getAccount, notify, principalOf, requireSubscription } from "./_commerce.js";
 import { purchaseAddonFor } from "./_lifecycle.js";
-import { agentPolicyFor, agentSpendFor } from "./_metering.js";
+import { AGENT_SPEND_CAPABILITY, agentPolicyFor, agentSpendFor } from "./_metering.js";
 
 /** Grant or change an agent's spending authority. The agent must be a member of this workspace. */
 export const setPolicy = app.mutation({
@@ -150,5 +150,43 @@ export const decideRequest = app.mutation({
     await ctx.db.patch(spendRequests, r.id, { state: "approved", decidedBy: who.id, decidedAt: now, invoiceId: result.invoiceId });
     await audit.record(ctx, { subject: "agent", id: `${accountId}:${r.agentId}`, type: "agent.purchase_approved", data: { requestId, invoiceId: result.invoiceId, approvedBy: who.id } });
     return { state: "approved", invoiceId: result.invoiceId, ...(result.checkoutId ? { checkoutId: result.checkoutId } : {}) };
+  },
+});
+
+// ─── Delegated spending authority (AuthBoundry) ─────────────────────────────────────────────────
+
+/**
+ * The person's own consent, held by AuthBoundry: agents may incur charges on their behalf. Without
+ * it no agent policy can spend money for them; withdrawing it stops the very next charge.
+ */
+export const delegateSpending = app.mutation({
+  access: "agents.manage",
+  args: { expiresAt: s.optional(s.number()) },
+  returns: s.object({ id: s.string(), status: s.string(), expiresAt: s.nullable(s.number()) }),
+  handler: async (ctx, { expiresAt }) => {
+    const who = principalOf(ctx);
+    if (who.type !== "user") fail("FORBIDDEN", "Only a person delegates spending authority.", { hint: "PERSON_REQUIRED" });
+    const g = await ctx.authority.grants.grant({ capabilities: [AGENT_SPEND_CAPABILITY], ...(expiresAt ? { expiresAt } : {}) });
+    await audit.record(ctx, { subject: "agent", id: `${callerAccountId(ctx)}:*`, type: "agent.spending_delegated", data: { delegationId: g.id, by: who.id, expiresAt: g.expiresAt } });
+    return { id: g.id, status: g.status, expiresAt: g.expiresAt };
+  },
+});
+
+export const withdrawSpending = app.mutation({
+  access: "agents.manage",
+  args: { delegationId: s.string() },
+  handler: async (ctx, { delegationId }) => {
+    await ctx.authority.grants.revoke(delegationId);
+    await audit.record(ctx, { subject: "agent", id: `${callerAccountId(ctx)}:*`, type: "agent.spending_withdrawn", data: { delegationId, by: principalOf(ctx).id } });
+  },
+});
+
+/** The caller's own delegations at AuthBoundry. */
+export const myDelegations = app.query({
+  access: "billing.read",
+  handler: async (ctx) => {
+    // Workaround W-04: QueryCtx does not declare `authority`, though the runtime provides it to queries.
+    const all = await (ctx as unknown as MutationCtx).authority.grants.list();
+    return all.filter((g) => g.capabilities.includes(AGENT_SPEND_CAPABILITY));
   },
 });

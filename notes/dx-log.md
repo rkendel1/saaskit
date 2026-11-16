@@ -11,3 +11,8 @@
 - [transactions] checked reads (phantoms) made concurrent metering correct with zero app locking code: 20 concurrent exports vs allowance 10 → exactly 10 committed, no lost updates. Retries are the caller's job (component ctx.call retries CONFLICT 4x automatically; test/clients need their own).
 - [app bug found by tests] grace/dunning anchored to event-arrival time instead of due time.
 - [audit] app.auditTrail record/history used for every material decision; ordering by per-subject FeltDB sequence. No custom audit infra needed.
+- [authboundry] authority.local works offline with the native @authboundry/core binary (~6s first decision in tests, deferred start). Executor credential "proven". GAP: grants.grant maps the person to `user:<id>` (authority.principal default) but ctx.authority.decide({onBehalfOf}) passes the id verbatim → "delegation_missing" until the app prefixes `user:` itself. Asymmetric contract.
+- [authboundry] QueryCtx type lacks `authority` though runtime provides it to queries (probe query called grants.list successfully) → cast workaround W-04.
+- [authboundry] test state is per test app (`<state>.authority`); identical grant ids across runs are deterministic ids, not leakage (checked runtime/local-authority.js:54-66).
+- [billing correctness, app] mid-period upgrade would have forgiven Pro overage under Business allowance → fixed with billedUnits + settle-on-upgrade.
+- [env] one full-suite run was killed (exit 137) concurrently with a session worker restart; not reproducible (peak 1 GB on rerun). Not attributed to FeltKit.

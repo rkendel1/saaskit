@@ -42,6 +42,11 @@ test("agent consumption is attributed, budgeted, approved by a person, and revoc
     // Overage costs 10¢ per execution: within the per-operation limit, three fit the 30¢ budget.
     const check = await bot.query(api.entitlements.check, { feature: "agents.executions.monthly" });
     assert.deepEqual([check.code, check.estimatedCost, check.agent?.authorized, check.agent?.budgetRemaining], ["overage", 10, true, 30]);
+    // Policy allows it, but no person has delegated spending at AuthBoundry yet.
+    await rejects(bot.mutation(api.workspace.agentExecute, { task: "over 0", idempotencyKey: "run-over-0000" }), "FORBIDDEN", "AGENT_DELEGATION_MISSING");
+    const delegation = await c.mutation(api.agents.delegateSpending, {});
+    assert.equal(delegation.status, "active");
+    assert.equal((await c.query(api.agents.myDelegations, {})).length, 1);
     for (let i = 0; i < 3; i++) assert.equal((await bot.mutation(api.workspace.agentExecute, { task: `over ${i}`, idempotencyKey: `run-over-000${i}` })).estimatedCost, 10);
     await rejects(bot.mutation(api.workspace.agentExecute, { task: "one too many", idempotencyKey: "run-over-0009" }), "FAILED_PRECONDITION", "AGENT_BUDGET_EXHAUSTED");
     const agents = await c.query(api.agents.overview, {});
@@ -64,10 +69,18 @@ test("agent consumption is attributed, budgeted, approved by a person, and revoc
     assert.equal(ent.value, 1500, "add-on granted on verified payment");
     assert.equal((await bot.mutation(api.workspace.agentExecute, { task: "now included again", idempotencyKey: "run-after-addon" })).disposition, "included");
 
-    // Revocation takes effect on the next call.
+    // Withdrawing the AuthBoundry delegation stops the next charge, even with budget left.
+    await c.mutation(api.agents.setPolicy, { agentId: "agent-ops", enabled: true, budgetPerPeriod: 1000, perOperationLimit: 10, meters: ["agent.executions"], mayRequestPurchases: true });
+    await backend.mutation(api.usage.ingest, { accountId, meter: "agent.executions", quantity: 600, idempotencyKey: "fill-addon" });
+    assert.equal((await bot.mutation(api.workspace.agentExecute, { task: "charged", idempotencyKey: "run-charged-01" })).estimatedCost, 10);
+    await c.mutation(api.agents.withdrawSpending, { delegationId: delegation.id });
+    await rejects(bot.mutation(api.workspace.agentExecute, { task: "after withdraw", idempotencyKey: "run-withdrawn1" }), "FORBIDDEN", "AGENT_DELEGATION_MISSING");
+    // Revoking the policy takes effect on the next call too.
     await c.mutation(api.agents.revokePolicy, { agentId: "agent-ops", reason: "project done" });
     await rejects(bot.mutation(api.workspace.agentExecute, { task: "after revoke", idempotencyKey: "run-revoked-01" }), "FORBIDDEN", "AGENT_NO_POLICY");
     const trail = await t.as("ada").query(api.ops.auditTrail, { subject: "agent", id: `${accountId}:agent-ops` });
+    const spent = trail.find((e) => e.type === "agent.spent")!.data as { authorityDecisionId: string | null; delegationId: string | null };
+    assert.ok(spent.authorityDecisionId && spent.delegationId === delegation.id, "each charge cites AuthBoundry's decision and the delegation");
     for (const type of ["agent.policy_granted", "agent.spent", "agent.purchase_requested", "agent.purchase_approved", "agent.policy_revoked"]) assert.ok(trail.some((e) => e.type === type), type);
   } finally {
     await gw.close();

@@ -139,7 +139,7 @@ export default defineComponent(async (ctx: ComponentContext) => {
             await ctx.work.finish(item, { outcome: "failed", error: { code: err.providerCode ?? "PROVIDER_REJECTED", message: err.message } });
           } else {
             stats.workRetried += 1;
-            await ctx.work.finish(item, { outcome: "retry", error: { code: err.code ?? "PROVIDER_UNAVAILABLE", message: err.message }, retryInMs: 2_000 * item.attempt });
+            await ctx.work.finish(item, { outcome: "retry", error: { code: (err as { code?: string }).code ?? "PROVIDER_UNAVAILABLE", message: err.message }, retryInMs: 2_000 * item.attempt });
           }
         }
       }

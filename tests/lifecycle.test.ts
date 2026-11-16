@@ -196,3 +196,30 @@ test("catalog changes never rewrite existing customers: grandfathering, explicit
     await t.close();
   }
 });
+
+test("an upgrade settles overage accrued under the old terms; it is never forgiven or billed twice", async () => {
+  const t = await setup();
+  const gw = await startGateway(t);
+  try {
+    const { c, accountId } = await onPro(t, gw);
+    const backend = t.as({ id: "backend", type: "service", roles: ["usage_reporter"] }, { session: false });
+    await backend.mutation(api.usage.ingest, { accountId, meter: "exports", quantity: 520, idempotencyKey: "pro-exports" });
+    const q = await c.query(api.billing.quote, { planKey: "business", priceKey: "business-monthly", seats: 3 });
+    const over = q.lines.find((l) => l.kind === "overage")!;
+    assert.equal(over.amount, 100, "20 exports at Pro's 5¢");
+    const up = await c.mutation(api.billing.changePlan, { planKey: "business", priceKey: "business-monthly", seats: 3, returnUrl: RETURN });
+    await gw.settle();
+    assert.equal((await c.query(api.billing.invoiceList, {})).find((i) => i.id === up.invoiceId)!.status, "paid");
+    assert.equal((await c.query(api.billing.summary, {}))!.upcoming!.overage, 0, "nothing left unbilled under Business");
+    // Past Business's 5000 later in the same period: only the new excess is billed, at Business rates.
+    await backend.mutation(api.usage.ingest, { accountId, meter: "exports", quantity: 4580, idempotencyKey: "biz-exports" });
+    assert.equal((await c.query(api.billing.summary, {}))!.upcoming!.overage, 100 * 2 - 20 * 2, "5100 used − 5000 included − 20 already billed = 80 at 2¢");
+    const end = (await c.query(api.billing.summary, {}))!.subscription.currentPeriodEnd;
+    await advance(t, gw, accountId, end + 1000);
+    const renewal = (await c.query(api.billing.invoiceList, {})).find((i) => i.kind === "renewal")!;
+    assert.equal(renewal.lines.find((l) => l.kind === "overage")!.amount, 160);
+  } finally {
+    await gw.close();
+    await t.close();
+  }
+});

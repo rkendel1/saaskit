@@ -6,8 +6,8 @@
 import { fail, s, type MutationCtx, type QueryCtx } from "@feltdb/feltkit";
 import { accounts, app, audit, checkouts, invoices, refunds, subscriptions, usageCounters } from "./app.js";
 import { planOf, priceOf, type Catalog, type Price } from "./_catalog.js";
-import { callerAccountId, catalogAt, commercialState, createInvoice, ensureAccount, getAccount, notify, principalOf, requirePublished, requireSubscription, subscriptionLine, type Line } from "./_commerce.js";
-import { addInterval, DAY, overageCharge, periodAmount, prorate, type SubscriptionState } from "./_engine.js";
+import { accruedOverageLines, callerAccountId, catalogAt, commercialState, createInvoice, ensureAccount, getAccount, markOverageBilled, notify, principalOf, releaseOverageBilled, requirePublished, requireSubscription, subscriptionLine, type Line } from "./_commerce.js";
+import { addInterval, DAY, periodAmount, periodKey, prorate, unbilledOverage, type SubscriptionState } from "./_engine.js";
 import { applyPayment, openCheckout, requestCharge } from "./_payments.js";
 import { expireToDefault, purchaseAddonFor } from "./_lifecycle.js";
 
@@ -80,7 +80,7 @@ async function quoteFor(ctx: QueryCtx | MutationCtx, accountId: string, planKey:
     // An upgrade that also changes interval starts a new period now, crediting the unused old one.
     const p = prorate(periodAmount(currentPrice, sub.seats), 0, sub.currentPeriodStart, sub.currentPeriodEnd, now);
     const end = addInterval(now, price.interval);
-    const lines: Line[] = [{ kind: "proration_credit", description: `Unused time on ${currentPlan.name}`, quantity: 1, unitAmount: -p.credit, amount: -p.credit }, subscriptionLine(plan, price, seats, now, end)];
+    const lines: Line[] = [{ kind: "proration_credit", description: `Unused time on ${currentPlan.name}`, quantity: 1, unitAmount: -p.credit, amount: -p.credit }, subscriptionLine(plan, price, seats, now, end), ...(await accruedOverageLines(ctx, accountId))];
     return { kind: "upgrade" as const, effective: "now" as const, plan, price, lines, total: Math.max(lines.reduce((a, l) => a + l.amount, 0), 0), catalogVersion: published.version, percentOff, periodEnd: end, restartPeriod: true };
   }
   const p = prorate(periodAmount(currentPrice, sub.seats), periodAmount(price, seats), sub.currentPeriodStart, sub.currentPeriodEnd, now);
@@ -88,7 +88,8 @@ async function quoteFor(ctx: QueryCtx | MutationCtx, accountId: string, planKey:
     { kind: "proration_credit", description: `Unused time on ${currentPlan.name}${currentPrice.model === "per_seat" ? ` (${sub.seats} seats)` : ""}`, quantity: 1, unitAmount: -p.credit, amount: -p.credit, periodStart: now, periodEnd: sub.currentPeriodEnd },
     { kind: "proration_charge", description: `Remaining time on ${plan.name}${price.model === "per_seat" ? ` (${seats} seats)` : ""}`, quantity: 1, unitAmount: p.charge, amount: p.charge, periodStart: now, periodEnd: sub.currentPeriodEnd },
   ];
-  return { kind: "upgrade" as const, effective: "now" as const, plan, price, lines, total: Math.max(p.net, 0), catalogVersion: published.version, percentOff, periodEnd: sub.currentPeriodEnd };
+  lines.push(...(await accruedOverageLines(ctx, accountId)));
+  return { kind: "upgrade" as const, effective: "now" as const, plan, price, lines, total: Math.max(lines.reduce((a, l) => a + l.amount, 0), 0), catalogVersion: published.version, percentOff, periodEnd: sub.currentPeriodEnd };
 }
 
 const quoteShape = s.object({
@@ -159,6 +160,7 @@ export const changePlan = app.mutation({
       periodStart: now, periodEnd: q.periodEnd, purpose: { type: "subscription", requestedBy: who },
     });
     const pendingKind = q.kind === "new" || restart ? "new" : "upgrade";
+    if (q.kind === "upgrade") await markOverageBilled(ctx, accountId, periodKey(sub.currentPeriodStart), q.lines, invoice.id, Boolean(restart));
     await ctx.db.patch(subscriptions, sub.id, {
       pending: { planKey: q.plan.key, priceKey: q.price.key, catalogVersion: q.catalogVersion, seats, invoiceId: invoice.id, kind: pendingKind }, updatedAt: now,
       ...(q.percentOff && args.coupon ? { coupon: { code: args.coupon.toUpperCase(), percentOff: q.percentOff, periodsLeft: (await requirePublished(ctx)).document.coupons.find((c: { code: string }) => c.code.toUpperCase() === args.coupon!.toUpperCase())!.periods } } : {}),
@@ -185,7 +187,10 @@ export const abandonPending = app.mutation({
     if (!sub.pending) return;
     const invoice = await ctx.db.get(invoices, sub.pending.invoiceId);
     if (invoice?.status === "paid") fail("FAILED_PRECONDITION", "That invoice is already paid; the change is being applied.");
-    if (invoice) await ctx.db.patch(invoices, invoice.id, { status: "void", voidedAt: Date.now(), nextAttemptAt: undefined });
+    if (invoice) {
+      await ctx.db.patch(invoices, invoice.id, { status: "void", voidedAt: Date.now(), nextAttemptAt: undefined });
+      await releaseOverageBilled(ctx, invoice);
+    }
     for (const c of await ctx.db.find(checkouts, { invoiceId: sub.pending.invoiceId })) if (c.state === "open" || c.state === "creating") await ctx.db.patch(checkouts, c.id, { state: "expired" });
     await ctx.db.patch(subscriptions, sub.id, { pending: undefined, ...(sub.planKey !== sub.pending.planKey && sub.coupon && invoice?.kind === "initial" ? { coupon: undefined } : {}), updatedAt: Date.now() });
     await audit.record(ctx, { subject: "subscription", id: accountId, type: "subscription.purchase_abandoned", data: { invoiceId: sub.pending.invoiceId } });
@@ -341,7 +346,7 @@ export const summary = app.query({
     const usage = state.entitlements.filter((e) => e.type === "allowance").map((e) => {
       const c = counters.find((x) => x.meter === e.meter);
       const used = c?.used ?? 0;
-      const over = overageCharge(e.value as number | null, used, e.overage);
+      const over = c?.invoicedAt ? { units: 0, amount: 0 } : unbilledOverage(e.value as number | null, used, c?.billedUnits ?? 0, e.overage);
       return { feature: e.key, name: e.name, meter: e.meter!, unit: e.unit ?? "", allowance: e.value as number | null, used, reserved: c?.reserved ?? 0, overageUnits: over.units, overageAmount: over.amount, policy: e.overage?.policy ?? "block" };
     });
     const overage = usage.reduce((a, u) => a + u.overageAmount, 0);
