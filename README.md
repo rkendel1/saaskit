@@ -85,5 +85,6 @@ payments component, the time-driven lifecycle, agent economics with a real priva
 - `FELTKIT_EXPERIENCE.md`: an evaluation of building this on FeltKit, the prioritised platform gap
   register, developer-experience scores, and the retrospective.
 - `WORKAROUND_INVENTORY.md`: every workaround, why, and how to remove it; LOC figures.
+- `docs/REMEDIATION_PLAN.md`: the evidence-maintained FeltKit/Boundry remediation plan built on these findings.
 
 FeltKit's own documentation ships with the package: `npx feltkit docs`.
