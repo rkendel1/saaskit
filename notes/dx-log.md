@@ -6,3 +6,8 @@
 - [schedules] no ctx.services.schedules and no code-declared schedule; schedules run as the person who created them → lifecycle clock lives in the component.
 - [intent] FeltDB "Intent" (@feltdb/core intent.d.ts) is NL→module implementation planning, not durable workflows.
 - [deps] FeltKit 0.3.30 pins @appport/sdk 1.8.1 (latest 1.9.0), authorization 1.1.1 (1.2.0), server 1.3.2 (1.3.3), mcp 1.3.8 (1.3.9). Not overridable without violating FeltKit's no-overrides release check.
+- [testing] createTestApp + ComponentHost.start(t.runtime,{from:"sources"}) lets tests drive the REAL component over real HTTP. Excellent. 31 tests, ~21s total.
+- [tenancy] t.as(user,{tenant}) for a non-member → FORBIDDEN (no tenant role), stricter than docs' NOT_FOUND wording (HTTP path). Good outcome; doc nuance.
+- [transactions] checked reads (phantoms) made concurrent metering correct with zero app locking code: 20 concurrent exports vs allowance 10 → exactly 10 committed, no lost updates. Retries are the caller's job (component ctx.call retries CONFLICT 4x automatically; test/clients need their own).
+- [app bug found by tests] grace/dunning anchored to event-arrival time instead of due time.
+- [audit] app.auditTrail record/history used for every material decision; ordering by per-subject FeltDB sequence. No custom audit infra needed.

@@ -106,17 +106,19 @@ export async function applyFailure(ctx: MutationCtx, invoice: Invoice, reason: s
   const open = attempts.filter((a) => a.state === "requested" || a.state === "unknown").sort((a, b) => b.attempt - a.attempt)[0];
   if (open) await ctx.db.patch(paymentAttempts, open.id, { state: "failed", failureReason: reason, settledAt: now });
   const retryDay = RETRY_SCHEDULE_DAYS[invoice.attempts - 1];
-  await ctx.db.patch(invoices, invoice.id, { lastFailure: reason, ...(retryDay !== undefined ? { nextAttemptAt: now + retryDay * DAY } : { nextAttemptAt: undefined }) });
+  // Dunning and grace count from when the money was due, not from when the provider's event arrived.
+  const due = Math.max(now, invoice.periodStart);
+  await ctx.db.patch(invoices, invoice.id, { lastFailure: reason, ...(retryDay !== undefined ? { nextAttemptAt: due + retryDay * DAY } : { nextAttemptAt: undefined }) });
   await audit.record(ctx, { subject: "invoice", id: invoice.id, type: "invoice.payment_failed", data: { reason, attempt: invoice.attempts, evidence, nextRetryDays: retryDay ?? null } });
   const [account] = await ctx.db.find(accounts, { accountId: invoice.accountId }, { limit: 1 });
   const [sub] = await ctx.db.find(subscriptions, { accountId: invoice.accountId }, { limit: 1 });
   if (!account || !sub) return "failure recorded";
-  notify(ctx, account, "payment.failed", `We could not collect payment for ${invoice.number}`, { invoiceId: invoice.id, reason, nextAttemptAt: retryDay !== undefined ? now + retryDay * DAY : null }, `failed:${invoice.id}:${invoice.attempts}`);
+  notify(ctx, account, "payment.failed", `We could not collect payment for ${invoice.number}`, { invoiceId: invoice.id, reason, nextAttemptAt: retryDay !== undefined ? due + retryDay * DAY : null }, `failed:${invoice.id}:${invoice.attempts}`);
   ctx.afterCommit.webhooks.emit("invoice.payment_failed", { accountId: invoice.accountId, invoiceId: invoice.id, reason });
   if (invoice.kind === "renewal" && (sub.status === "active" || sub.status === "trialing")) {
     const catalog = await catalogAt(ctx, sub.catalogVersion);
     const { plan } = planPrice(catalog, sub.planKey, sub.priceKey);
-    const graceUntil = now + plan.graceDays * DAY;
+    const graceUntil = due + plan.graceDays * DAY;
     await ctx.db.patch(subscriptions, sub.id, { status: "past_due", graceUntil, updatedAt: now });
     await audit.record(ctx, { subject: "subscription", id: invoice.accountId, type: "subscription.past_due", data: { invoiceId: invoice.id, graceUntil, transition: `${sub.status}→past_due` } });
     ctx.afterCommit.webhooks.emit("subscription.updated", { accountId: invoice.accountId, status: "past_due" });
