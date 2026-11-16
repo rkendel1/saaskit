@@ -253,7 +253,7 @@ friction or a silent failure mode; **Low** = papercut.
 | FK-04 | High | FeltKit | No sanctioned cross-tenant access to tenant-scoped collections for system principals (components, operators, lifecycle) | `docs/AUTH.md` "No tenant in the call: closed"; `CollectionOptions.tenant` (`dist/app.d.ts:356-363`) | Billing keyed by explicit `accountId`; isolation enforced in app code via `callerAccountId` (W-06) | `tenant: { system: ["component:payments", "operator"] }`, each cross-tenant read audited |
 | FK-09 | High (agent products) | FeltKit | An MCP-only agent cannot select a workspace; switching over HTTP rotates the token; the stale token's MCP error is misleading; `session create` has no `--tenant` | `dist/server/mcp.js:84`; curl transcript in `notes/dx-log.md` | Switch via `/api/tenants/switch`, use the rotated token (W-07) | `feltkit session create --tenant <id>`, an MCP `feltkit_workspace_switch` tool, and a precise "token was replaced" error |
 | FK-03 | Medium | FeltKit / AppPort Services | No code-declared schedules; `ctx` has no schedules API; schedules run as their human creator | `ServicesConfig.schedules?: boolean` (`dist/runtime/services.d.ts:172`); no `schedules` on `ctx.services` (`dist/runtime/context.d.ts:173-181`) | Lifecycle clock in the payments component (W-03) | `services.schedules: { name: { every, handler, principal } }` in `feltkit/app.ts` |
-| FK-07 | Medium | FeltKit | `ctx.authority.decide({ onBehalfOf })` is not mapped through `authority.principal`, while grants are | `dist/runtime/application-authority.js:33-51`; repro in `notes/dx-log.md` (deny `delegation_missing` → allow with `user:` prefix) | `authorityPrincipal()` in `_metering.ts` (W-05) | Map `onBehalfOf` like grants, or reject unprefixed ids with a hint |
+| FK-07 | Medium (**fixed in 0.3.31**) | FeltKit | `ctx.authority.decide({ onBehalfOf })` is not mapped through `authority.principal`, while grants are | `dist/runtime/application-authority.js:33-51`; repro in `notes/dx-log.md` (deny `delegation_missing` → allow with `user:` prefix) | `authorityPrincipal()` in `_metering.ts` (W-05) | Map `onBehalfOf` like grants, or reject unprefixed ids with a hint |
 | FK-10 | Medium | FeltKit | Failed after-commit effects are not readable by application code | Only `feltkit outbox list` / Studio; found when a threshold notice failed silently (acceptance) | None (role fixed) | `ctx.outbox.failed()` query or an `effect.failed` event apps can subscribe to |
 | FK-14 | Medium | FeltKit client | Browser client does not retry `CONFLICT` with `retryable: true`; components do | `dist/client/index.js:213-236` vs `dist/server/components.js:78-83` | None in UI (remaining limitation) | Opt-in bounded retry for retryable errors in `useMutation` |
 | FK-13 | Medium | Ecosystem docs | "Intent" (FeltDB) is NL→implementation planning, not durable workflows; there is no workflow/state-machine primitive | `@feltdb/core/dist/intent.d.ts` | State machine in `_engine.ts` + component clock | Document the intended home for durable workflows, or provide one |
@@ -261,8 +261,33 @@ friction or a silent failure mode; **Low** = papercut.
 | FK-05 | Low | FeltKit | Component principal validated at start, not at definition/codegen (docs say definition) | `docs/COMPONENTS.md` Identity row; codegen accepted `payments-gateway` | — | Validate in `feltkit()` |
 | FK-11 | Low | FeltKit measure | Runtime components classified as UI "experience" | `feltkit measure --json` before `feltkit.measure.json` | Declarations (W-08) | Classify files named in `feltkit({ components })` as infrastructure |
 | FK-08 | Low | AuthBoundry local | Delegation ids are identical across separate AuthBoundry instances | Same id in test and dev environments (Agents screenshot) | — | Include an instance-unique component, or document determinism |
-| FK-12 | Info | FeltKit release | `@appport/*` pinned exactly, behind latest | §2.1 table | — | Faster pin bumps, or ranges with conformance tests |
+| FK-12 | Info (**largely fixed in 0.3.31**) | FeltKit release | `@appport/*` pinned exactly, behind latest | §2.1 table | — | Faster pin bumps, or ranges with conformance tests |
+| FK-16 | High | FeltKit + AuthBoundry release | 0.3.31 requires an unpublished `@authboundry/local` (`registerAgent`) for agent-caller delegation; decisions return `unavailable` | §3.1 | Stay on 0.3.30 | Publish the AuthBoundry release first, or gate the new path behind capability detection that preserves the 0.3.30 behaviour; test the published combination |
+| FK-17 | Medium | FeltKit tenancy | No hook at the membership boundary for commercial limits (seats) | §3.1 | Seat limits displayed, not enforced | A membership policy evaluated inside tenancy's write transaction |
 | FK-15 | Info | FeltKit docs | Non-member calling with a tenant gets `FORBIDDEN` in tests vs `NOT_FOUND` wording in AUTH.md | `tests/metering.test.ts` isolation test | — | Align wording |
+
+### 3.1 Re-verification against FeltKit 0.3.31 (published after this build)
+
+Checked in the 0.3.31 package source (`npm pack @feltdb/feltkit@0.3.31`) and by upgrading this
+application to it and running the full suite. Other packages had no newer release
+(`@feltdb/core` 0.21.0, `@appport/services` 0.19.0, `@authboundry/local` 0.1.0, `@authboundry/core` 1.19.0).
+
+| Gap | Status in 0.3.31 | Evidence |
+|---|---|---|
+| FK-07 | **Fixed.** `onBehalfOf: "ada"` is mapped through `authority.principal` as grants are; `"user:ada"`, `{ person }`, `{ principal }` also accepted (FRAME-GAP-11) | `dist/runtime/context.d.ts:333-340`, `dist/runtime/application-authority.js` `onBehalfOfPrincipal` |
+| FK-12 | **Largely fixed.** Pins now `@appport/sdk` 1.9.0, `server` 1.3.3, `authorization` 1.2.0, `mcp` 1.3.9 (all latest) | `package.json`; `npm ls` after upgrade |
+| FK-01, FK-03, FK-04, FK-06, FK-09 | Unchanged | `integrations.js` still sets `content-type: application/json`; `schedules?: boolean`; no system access on `tenant`; `QueryCtx` still lacks `authority`; no tenant handling in `server/mcp.js` |
+| FK-16 (new, **High**) | 0.3.31 makes an agent caller decide **as itself** (per-agent delegation), which needs `registerAgent` from an `@authboundry/local` release that does not exist (0.1.0 is the only published version). Every agent-initiated `ctx.authority.decide` returns `outcome: "unavailable"`. The doc comment says an unregistered agent is "a deny, never an error"; the observed outcome is `unavailable`. Fails closed (safe), but delegated agent spending cannot work on any published package set | `dist/runtime/local-authority.js:38` (`NEEDS_AGENTS`), `:199-201`; upgrading this app turned `tests/agents.test.ts` and acceptance step 17 red with "Per-agent delegation needs @authboundry/local with registerAgent (after 0.1.0, authboundry 001ce42)" |
+| FK-17 (new, Medium; was "unverified" in §2.3) | **Confirmed:** no extension point at the membership boundary. `invite`, `accept` and `addPrincipal` write memberships directly in tenancy's own transaction; the new `app.policy` layer covers functions only, and tenancy routes are not functions. Seat limits cannot be enforced atomically by an application | `dist/runtime/tenancy.js:198-227, 336-354, 387-432`; `docs/POLICIES.md` layer table |
+
+Decision: this application stays on **0.3.30** until FK-16 is resolved (a published
+`@authboundry/local` with `registerAgent`, and FeltKit's agent path tested against it). The W-05 removal
+was made, tested and reverted; it is a one-line change once the upgrade is possible.
+
+New in 0.3.31 and relevant: declarative `app.policy` rules, including a `delegated` condition decided
+by AuthBoundry (`docs/POLICIES.md`). It could express "an agent may run this function on behalf of the
+owner" declaratively. It cannot replace this app's spend gate, which only asks AuthBoundry when the
+computed cost of a specific call is above zero.
 
 ---
 
