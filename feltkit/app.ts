@@ -34,7 +34,8 @@ export const app = feltkit({
     // The payments component: verified provider events and provider work results; the lifecycle clock.
     payments_gateway: ["payments.ingest", "payments.settle", "lifecycle.run", "notifications.send", "webhooks.emit", "webhooks.deliver"],
     // A server-side integration reporting usage with an API key.
-    usage_reporter: ["usage.ingest"],
+    // Its after-commit effects (threshold notices, webhooks) run as it, so it needs those permissions too.
+    usage_reporter: ["usage.ingest", "notifications.send", "webhooks.emit", "webhooks.deliver"],
   },
   auth: {
     accounts: { roles: ["person"] },

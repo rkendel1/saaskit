@@ -1,0 +1,10 @@
+{
+  "report": "docs/evidence/measure.json",
+  "classify": [
+    { "path": "components/payments.ts", "class": "infrastructure", "reason": "FeltKit runtime component: Stripe webhook verification, provider work loop, lifecycle clock. Provider-specific plumbing the platform does not provide (see FELTKIT_EXPERIENCE.md FK-01..FK-03)" },
+    { "path": "components/stripe/stripe.ts", "class": "infrastructure", "reason": "Stripe HTTP client (form-encoded) and Stripe-Signature verification: app.integration is JSON-only and inbound webhooks verify only AppPort signatures" },
+    { "path": "components/stripe/provider.ts", "class": "infrastructure", "reason": "provider-neutral payment boundary (types only)" },
+    { "path": "components/stripe/simulator.ts", "class": "tests", "reason": "deterministic Stripe-compatible test double for development and tests; never used in production" },
+    { "path": "scripts/demo.ts", "class": "tests", "reason": "demonstration seed script against a running dev server" }
+  ]
+}
