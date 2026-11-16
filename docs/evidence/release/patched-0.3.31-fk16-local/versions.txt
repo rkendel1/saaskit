@@ -1,0 +1,38 @@
+label: patched-0.3.31-fk16-local
+feltkit spec: /tmp/claude-0/-home-user-saaskit/22c3d1ce-dd51-5a0f-b97d-491032c9360b/scratchpad/fk16/feltdb-feltkit-0.3.31-fk16-local.tgz
+date: 2026-11-16T23:15:04Z
+registry: https://registry.npmjs.org/
++-- @authboundry/local@0.1.0
++-- @feltdb/feltkit@0.3.31
++-- @feltdb/webllm@0.21.0
+--- transitive
+@appport/authorization@1.2.0
+@appport/client@1.1.8
+@appport/core@1.8.0
+@appport/integration@1.2.5
+@appport/mcp@1.3.9
+@appport/mobile@1.0.12
+@appport/protocol@1.5.0
+@appport/resolver-client@0.3.0
+@appport/resolver-core@0.2.0
+@appport/schema@1.1.6
+@appport/sdk@1.9.0
+@appport/server@1.3.3
+@appport/services@0.18.0
+@appport/services@0.19.0
+@appport/transport-electron@1.0.16
+@appport/transport-http@1.1.8
+@appport/transport-inprocess@1.0.16
+@appport/transport-tauri@1.0.12
+@appport/transport-websocket@1.0.12
+@authboundry/core@1.19.0
+@authboundry/local@0.1.0
+@feltdb/core@0.21.0
+@feltdb/feltkit@0.3.31
+@feltdb/webllm@0.21.0
+--- @feltdb/feltkit resolved from
+(see package-lock.json)
+file:../../fk16/feltdb-feltkit-0.3.31-fk16-local.tgz
+--- @authboundry/local exports registerAgent?
+LocalAuthorityError, serverExecutable, startLocalAuthority
+0

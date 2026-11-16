@@ -1,0 +1,34 @@
+--- a/dist/runtime/local-authority.js	1985-10-26 08:15:00.000000000 +0000
++++ b/dist/runtime/local-authority.js	2026-11-16 23:11:44.869372677 +0000
+@@ -36,6 +36,8 @@
+ /** The permission that registers, lists and revokes the application's agents at its local authority (an operator's). */
+ export const AGENTS_PERMISSION = "feltkit.authority.agents";
+ const NEEDS_AGENTS = "Per-agent delegation needs @authboundry/local with registerAgent (after 0.1.0, authboundry 001ce42)";
++/** FK-16: warn once per process when agent callers fall back to executor decisions. */
++let executorFallbackWarned = false;
+ export { authorityPrincipalOf };
+ /**
+  * Every capability the application asks AuthBoundry about: its own (`authority.capabilities`) and one per
+@@ -251,8 +253,21 @@
+         const authority = this.#authority;
+         if (!authority)
+             return { refused: "unavailable", reason: `The local authority is not running${this.#status.error ? `: ${this.#status.error}` : ""}.` };
+-        if (typeof authority.registerAgent !== "function" || typeof authority.agentCredentialOf !== "function")
++        if (typeof authority.registerAgent !== "function" || typeof authority.agentCredentialOf !== "function") {
++            // FK-16: the installed @authboundry/local cannot register agents (0.1.0 has no registerAgent).
++            // An agent caller that did not name an agent decides as the executor: the contract it had in
++            // 0.3.30, and still has with a hosted authority (above). The decision records the executor, and
++            // the first fallback is logged. A request that names an agent is refused: it asked for what
++            // the installed authority cannot do.
++            if (!wanted) {
++                if (!executorFallbackWarned) {
++                    executorFallbackWarned = true;
++                    this.#runtime.logger.warn(`${NEEDS_AGENTS}; agent callers (first: ${target}) decide as the application's executor, as in 0.3.30.`);
++                }
++                return null;
++            }
+             return { refused: "unavailable", reason: `${NEEDS_AGENTS}.` };
++        }
+         const credential = this.#agents.has(target) ? authority.agentCredentialOf(target) : null;
+         if (!credential)
+             return { refused: "deny", reason: `${target} is not an agent registered with this application's authority.` };

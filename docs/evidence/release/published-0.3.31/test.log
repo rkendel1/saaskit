@@ -1,0 +1,272 @@
+TAP version 13
+# Subtest: acceptance: build, sell, meter, bill, delegate, upgrade, cancel — all auditable
+not ok 1 - acceptance: build, sell, meter, bill, delegate, upgrade, cancel — all auditable
+  ---
+  duration_ms: 2993.991254
+  type: 'test'
+  location: '/tmp/claude-0/-home-user-saaskit/22c3d1ce-dd51-5a0f-b97d-491032c9360b/scratchpad/tmp/feltkit-release-published-0.3.31-dtyp/tests/acceptance.test.ts:1:322'
+  failureType: 'testCodeFailure'
+  error: 'grace has not delegated spending authority to agents (AuthBoundry: Per-agent delegation needs @authboundry/local with registerAgent (after 0.1.0, authboundry 001ce42).).'
+  code: 'UNAVAILABLE'
+  name: 'FeltKitError'
+  stack: |-
+    run (/tmp/claude-0/-home-user-saaskit/22c3d1ce-dd51-5a0f-b97d-491032c9360b/scratchpad/tmp/feltkit-release-published-0.3.31-dtyp/node_modules/@feltdb/feltkit/dist/testing/index.js:67:23)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async TestContext.<anonymous> (/tmp/claude-0/-home-user-saaskit/22c3d1ce-dd51-5a0f-b97d-491032c9360b/scratchpad/tmp/feltkit-release-published-0.3.31-dtyp/tests/acceptance.test.ts:100:17)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: an agent needs a workspace role, a plan that includes agents, AND a spending policy
+ok 2 - an agent needs a workspace role, a plan that includes agents, AND a spending policy
+  ---
+  duration_ms: 554.544387
+  type: 'test'
+  ...
+# Subtest: agent consumption is attributed, budgeted, approved by a person, and revocable
+not ok 3 - agent consumption is attributed, budgeted, approved by a person, and revocable
+  ---
+  duration_ms: 2554.07257
+  type: 'test'
+  location: '/tmp/claude-0/-home-user-saaskit/22c3d1ce-dd51-5a0f-b97d-491032c9360b/scratchpad/tmp/feltkit-release-published-0.3.31-dtyp/tests/agents.test.ts:1:1194'
+  failureType: 'testCodeFailure'
+  error: 'expected FORBIDDEN, got UNAVAILABLE: grace has not delegated spending authority to agents (AuthBoundry: Per-agent delegation needs @authboundry/local with registerAgent (after 0.1.0, authboundry 001ce42).).'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    rejects (/tmp/claude-0/-home-user-saaskit/22c3d1ce-dd51-5a0f-b97d-491032c9360b/scratchpad/tmp/feltkit-release-published-0.3.31-dtyp/tests/helpers.ts:113:34)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async TestContext.<anonymous> (/tmp/claude-0/-home-user-saaskit/22c3d1ce-dd51-5a0f-b97d-491032c9360b/scratchpad/tmp/feltkit-release-published-0.3.31-dtyp/tests/agents.test.ts:46:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: a single costly operation above the per-operation limit needs a person
+ok 4 - a single costly operation above the per-operation limit needs a person
+  ---
+  duration_ms: 1345.487537
+  type: 'test'
+  ...
+# Subtest: the seed catalog is publishable, and broken catalogs say why
+ok 5 - the seed catalog is publishable, and broken catalogs say why
+  ---
+  duration_ms: 2.564429
+  type: 'test'
+  ...
+# Subtest: plans grant entitlements; lapsed subscriptions fall back to the default plan
+ok 6 - plans grant entitlements; lapsed subscriptions fall back to the default plan
+  ---
+  duration_ms: 0.798315
+  type: 'test'
+  ...
+# Subtest: overrides replace, grants and add-ons add, scoped and expired grants apply only where they should
+ok 7 - overrides replace, grants and add-ons add, scoped and expired grants apply only where they should
+  ---
+  duration_ms: 0.288581
+  type: 'test'
+  ...
+# Subtest: decisions: boolean, limit, rate, allowance, overage, caps
+ok 8 - decisions: boolean, limit, rate, allowance, overage, caps
+  ---
+  duration_ms: 0.422672
+  type: 'test'
+  ...
+# Subtest: rating: per-seat minimums, proration never credits more than was paid, overage blocks
+ok 9 - rating: per-seat minimums, proration never credits more than was paid, overage blocks
+  ---
+  duration_ms: 0.333674
+  type: 'test'
+  ...
+# Subtest: calendar periods clamp to month ends
+ok 10 - calendar periods clamp to month ends
+  ---
+  duration_ms: 0.417481
+  type: 'test'
+  ...
+# Subtest: the lifecycle refuses impossible transitions
+ok 11 - the lifecycle refuses impossible transitions
+  ---
+  duration_ms: 0.333137
+  type: 'test'
+  ...
+# Subtest: usage thresholds fire once each
+ok 12 - usage thresholds fire once each
+  ---
+  duration_ms: 0.534516
+  type: 'test'
+  ...
+# Subtest: catalog diffs describe commercial changes
+ok 13 - catalog diffs describe commercial changes
+  ---
+  duration_ms: 1.157498
+  type: 'test'
+  ...
+# Subtest: FK-07 regression: every documented onBehalfOf form resolves to the same principal
+ok 14 - FK-07 regression: every documented onBehalfOf form resolves to the same principal
+  ---
+  duration_ms: 2570.175078
+  type: 'test'
+  ...
+# Subtest: FK-16: an agent caller decides with the delegation it has, and the evidence names who decided
+not ok 15 - FK-16: an agent caller decides with the delegation it has, and the evidence names who decided
+  ---
+  duration_ms: 1922.292005
+  type: 'test'
+  location: '/tmp/claude-0/-home-user-saaskit/22c3d1ce-dd51-5a0f-b97d-491032c9360b/scratchpad/tmp/feltkit-release-published-0.3.31-dtyp/tests/fk16.test.ts:1:934'
+  failureType: 'testCodeFailure'
+  error: |-
+    agent caller: unavailable Per-agent delegation needs @authboundry/local with registerAgent (after 0.1.0, authboundry 001ce42).
+    + actual - expected
+    
+    + 'unavailable'
+    - 'allow'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'allow'
+  actual: 'unavailable'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/tmp/claude-0/-home-user-saaskit/22c3d1ce-dd51-5a0f-b97d-491032c9360b/scratchpad/tmp/feltkit-release-published-0.3.31-dtyp/tests/fk16.test.ts:46:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: FK-16: asking explicitly to decide as a named agent fails explicitly when the authority cannot
+ok 16 - FK-16: asking explicitly to decide as a named agent fails explicitly when the authority cannot
+  ---
+  duration_ms: 1509.016301
+  type: 'test'
+  ...
+# Subtest: FK-16: an agent can never decide as another agent
+ok 17 - FK-16: an agent can never decide as another agent
+  ---
+  duration_ms: 1388.297653
+  type: 'test'
+  ...
+# Subtest: renewal bills the next period plus the ended period's overage, from the authoritative counters
+ok 18 - renewal bills the next period plus the ended period's overage, from the authoritative counters
+  ---
+  duration_ms: 2269.856451
+  type: 'test'
+  ...
+# Subtest: a failed renewal enters grace, then suspension (access falls back), and a new card recovers it
+ok 19 - a failed renewal enters grace, then suspension (access falls back), and a new card recovers it
+  ---
+  duration_ms: 2003.553409
+  type: 'test'
+  ...
+# Subtest: downgrades wait for the period end; cancellation keeps access until then, then returns to Free
+ok 20 - downgrades wait for the period end; cancellation keeps access until then, then returns to Free
+  ---
+  duration_ms: 1678.842738
+  type: 'test'
+  ...
+# Subtest: a trial grants the plan without a card, warns before it ends, and falls back without one
+ok 21 - a trial grants the plan without a card, warns before it ends, and falls back without one
+  ---
+  duration_ms: 416.963908
+  type: 'test'
+  ...
+# Subtest: catalog changes never rewrite existing customers: grandfathering, explicit migration, rollback
+ok 22 - catalog changes never rewrite existing customers: grandfathering, explicit migration, rollback
+  ---
+  duration_ms: 1266.439077
+  type: 'test'
+  ...
+# Subtest: an upgrade settles overage accrued under the old terms; it is never forgiven or billed twice
+ok 23 - an upgrade settles overage accrued under the old terms; it is never forgiven or billed twice
+  ---
+  duration_ms: 1453.119537
+  type: 'test'
+  ...
+# Subtest: concurrent consumers never overspend an allowance or lose an increment
+ok 24 - concurrent consumers never overspend an allowance or lose an increment
+  ---
+  duration_ms: 761.603827
+  type: 'test'
+  ...
+# Subtest: a repeated idempotency key records usage once, even when the repeats race
+ok 25 - a repeated idempotency key records usage once, even when the repeats race
+  ---
+  duration_ms: 464.093116
+  type: 'test'
+  ...
+# Subtest: reservations hold capacity, settle to actual use, and expire back
+ok 26 - reservations hold capacity, settle to actual use, and expire back
+  ---
+  duration_ms: 419.084904
+  type: 'test'
+  ...
+# Subtest: rate limits and resource limits are enforced from the plan
+ok 27 - rate limits and resource limits are enforced from the plan
+  ---
+  duration_ms: 490.36311
+  type: 'test'
+  ...
+# Subtest: server-reported usage is idempotent; operator adjustments are new events, audited
+ok 28 - server-reported usage is idempotent; operator adjustments are new events, audited
+  ---
+  duration_ms: 404.054649
+  type: 'test'
+  ...
+# Subtest: tenant isolation and role separation
+ok 29 - tenant isolation and role separation
+  ---
+  duration_ms: 367.609674
+  type: 'test'
+  ...
+# Subtest: webhooks with a forged, missing or stale signature are refused before anything is recorded
+ok 30 - webhooks with a forged, missing or stale signature are refused before anything is recorded
+  ---
+  duration_ms: 896.669868
+  type: 'test'
+  ...
+# Subtest: a redelivered event is applied once
+ok 31 - a redelivered event is applied once
+  ---
+  duration_ms: 1196.265416
+  type: 'test'
+  ...
+# Subtest: events delivered out of order reach the same state
+ok 32 - events delivered out of order reach the same state
+  ---
+  duration_ms: 1004.303819
+  type: 'test'
+  ...
+# Subtest: a payment that does not match its invoice grants nothing and is flagged
+ok 33 - a payment that does not match its invoice grants nothing and is flagged
+  ---
+  duration_ms: 430.339045
+  type: 'test'
+  ...
+# Subtest: a declined card at checkout changes nothing; the purchase can be abandoned
+ok 34 - a declined card at checkout changes nothing; the purchase can be abandoned
+  ---
+  duration_ms: 989.420477
+  type: 'test'
+  ...
+# Subtest: upgrading with a saved card charges the prorated difference off-session; refunds settle by event
+ok 35 - upgrading with a saved card charges the prorated difference off-session; refunds settle by event
+  ---
+  duration_ms: 1493.919854
+  type: 'test'
+  ...
+# Subtest: reconciliation applies a payment the event stream missed
+ok 36 - reconciliation applies a payment the event stream missed
+  ---
+  duration_ms: 422.211511
+  type: 'test'
+  ...
+# Subtest: smoke: free limits, checkout to Pro through the payments component, new entitlements
+ok 37 - smoke: free limits, checkout to Pro through the payments component, new entitlements
+  ---
+  duration_ms: 1415.532257
+  type: 'test'
+  ...
+1..37
+# tests 37
+# suites 0
+# pass 34
+# fail 3
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 54595.447396
