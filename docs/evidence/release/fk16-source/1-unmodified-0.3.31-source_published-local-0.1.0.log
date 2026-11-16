@@ -1,0 +1,94 @@
+TAP version 13
+# Subtest: authority.local: started and set up by FeltKit, secrets in custody, decisions from each person's own grants, kept across a restart
+ok 1 - authority.local: started and set up by FeltKit, secrets in custody, decisions from each person's own grants, kept across a restart
+  ---
+  duration_ms: 2753.828161
+  type: 'test'
+  ...
+# Subtest: authority.local in the test environment: started on first use, not with the application
+ok 2 - authority.local in the test environment: started on first use, not with the application
+  ---
+  duration_ms: 1185.973677
+  type: 'test'
+  ...
+# Subtest: per-agent delegation: each app.agent decides as itself; a grant to one agent allows only it; revoking it stops only it
+ok 3 - per-agent delegation: each app.agent decides as itself; a grant to one agent allows only it; revoking it stops only it # SKIP the installed @authboundry/local has no per-agent delegation (registerAgent): needs the release after 0.1.0 (authboundry 001ce42)
+  ---
+  duration_ms: 0.227494
+  type: 'test'
+  ...
+# Subtest: an @authboundry/local without per-agent delegation: agent grants and agent decisions are refused, naming the release; the executor's work as before
+ok 4 - an @authboundry/local without per-agent delegation: agent grants and agent decisions are refused, naming the release; the executor's work as before
+  ---
+  duration_ms: 1324.268622
+  type: 'test'
+  ...
+# Subtest: code policies: owner, shared-with and admin read; others are refused with the rule that was not met
+ok 5 - code policies: owner, shared-with and admin read; others are refused with the rule that was not met
+  ---
+  duration_ms: 179.704094
+  type: 'test'
+  ...
+# Subtest: record state and deny-overrides: a published document is not edited by its owner and not removed by anyone
+ok 6 - record state and deny-overrides: a published document is not edited by its owner and not removed by anyone
+  ---
+  duration_ms: 196.459286
+  type: 'test'
+  ...
+# Subtest: input decides: small refunds by the invoice owner, larger ones by an admin; allows of sensitive policies and every refusal are durable evidence
+ok 7 - input decides: small refunds by the invoice owner, larger ones by an admin; allows of sensitive policies and every refusal are durable evidence
+  ---
+  duration_ms: 136.952657
+  type: 'test'
+  ...
+# Subtest: the hook runs after the policies, sees their decision, and can still refuse
+ok 8 - the hook runs after the policies, sees their decision, and can still refuse
+  ---
+  duration_ms: 142.212188
+  type: 'test'
+  ...
+# Subtest: managed policies: a stored version takes effect on the next call without a restart, is refused when it names unknown functions, and leaves history
+ok 9 - managed policies: a stored version takes effect on the next call without a restart, is refused when it names unknown functions, and leaves history
+  ---
+  duration_ms: 162.432746
+  type: 'test'
+  ...
+# Subtest: simulation decides without running anything or recording evidence; the admin routes expose management
+ok 10 - simulation decides without running anything or recording evidence; the admin routes expose management
+  ---
+  duration_ms: 133.882534
+  type: 'test'
+  ...
+# Subtest: integration operations: the hook and managed policies apply through AppPort and ctx.integrations alike (D3)
+ok 11 - integration operations: the hook and managed policies apply through AppPort and ctx.integrations alike (D3)
+  ---
+  duration_ms: 201.468846
+  type: 'test'
+  ...
+# Subtest: agent delegation through AuthBoundry: allowed within a grant, never beyond it, and refused on the next call after revocation
+ok 12 - agent delegation through AuthBoundry: allowed within a grant, never beyond it, and refused on the next call after revocation # SKIP the installed @authboundry/local has no per-agent delegation (registerAgent): needs the release after 0.1.0 (authboundry 001ce42)
+  ---
+  duration_ms: 0.178685
+  type: 'test'
+  ...
+# Subtest: an AppBoundry artifact enforces the code policies it carries, with the same answers; delegation cannot hold without an authority
+ok 13 - an AppBoundry artifact enforces the code policies it carries, with the same answers; delegation cannot hold without an authority
+  ---
+  duration_ms: 431.715599
+  type: 'test'
+  ...
+# Subtest: owner via a referenced record: the resource names a profile, the profile names the person
+ok 14 - owner via a referenced record: the resource names a profile, the profile names the person
+  ---
+  duration_ms: 1.400436
+  type: 'test'
+  ...
+1..14
+# tests 14
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 2
+# todo 0
+# duration_ms 14112.373281
