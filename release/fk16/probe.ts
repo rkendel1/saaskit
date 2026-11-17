@@ -22,6 +22,6 @@ export const decide = app.mutation({
   handler: async (ctx, { form, agent }) => {
     // Cast: 0.3.30's types accept only a string onBehalfOf and no `agent`; 0.3.31 accepts all four forms.
     const d = await ctx.authority.decide({ capability: "billing.agentspend", onBehalfOf: FORMS[form], ...(agent ? { agent } : {}) } as never);
-    return { allowed: d.allowed, outcome: d.outcome, reason: d.reason, executor: d.executor, onBehalfOf: d.onBehalfOf, delegationId: d.delegationId, proven: d.executorProof?.proven ?? null, compatibility: (d as { compatibility?: string }).compatibility ?? null };
+    return { allowed: d.allowed, outcome: d.outcome, reason: d.reason, executor: d.executor, onBehalfOf: d.onBehalfOf, delegationId: d.delegationId, proven: d.executorProof?.proven ?? null, authorityMode: (d as { authorityMode?: string | null }).authorityMode ?? null, lasting: (d as { lasting?: boolean }).lasting ?? false };
   },
 });

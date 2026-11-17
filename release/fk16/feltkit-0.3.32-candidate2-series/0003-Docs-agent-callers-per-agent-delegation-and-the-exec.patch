@@ -1,0 +1,46 @@
+From 0a351873a3a321b45186acd1a3b90e5c67fb66c0 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 17 Nov 2026 00:11:12 +0000
+Subject: [PATCH 3/4] Docs: agent callers, per-agent delegation and the
+ executor-grants opt-in in the shipped SECURITY.md
+
+---
+ docs/SECURITY.md | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/docs/SECURITY.md b/docs/SECURITY.md
+index 9495cb5..0d12767 100644
+--- a/docs/SECURITY.md
++++ b/docs/SECURITY.md
+@@ -168,6 +168,28 @@ Every entry point was exercised by `packages/sdk/test/auth.test.ts`.
+   `integrations.test.ts` (discovery without authority, no credential in records),
+   `platform.test.ts` (production routes).
+ 
++## Agent callers and per-agent delegation (FK-16, 0.3.32)
++
++With `authority.local`, an agent caller (an `app.agent` run, an agent session such as an MCP client) asks
++AuthBoundry **as itself**: only what a person granted *that agent* allows it. That needs an
++`@authboundry/local` with per-agent delegation (`registerAgent`). The only published release, 0.1.0, has none.
++
++- **Default: fail closed.** Without per-agent delegation installed, every decision by an agent caller is
++  `unavailable`. People's and services' decisions are unaffected. FeltKit does not fall back to the executor
++  on its own: that would let every agent of the application use every grant people gave the executor.
++- **Opt-in: `authority: { local: { agentCallers: "executor-grants" } }`.** The application owner may choose the
++  model FeltKit had through 0.3.30: an agent caller that names no agent is decided as the executor, with the
++  executor's grants. **This widens authority** and is not equivalent to per-agent delegation: one person's
++  grant to the application is usable by every agent. Each such decision carries
++  `compatibility: "executor-grants"` (decision and activity record), and readiness warns
++  (`authority.agent-callers`), so operators see it without reading logs. Invalid values fail when the app is
++  defined.
++- **Never widened by the opt-in:** a decision that names an agent stays `unavailable`; an agent can never decide
++  as another agent; grants naming an agent and `ctx.authority.agents` stay refused without per-agent delegation.
++- **Once per-agent delegation is installed** the setting has no effect (readiness says so): agents decide as
++  themselves. To move: install it, register agents (an operator's act; `app.agent`s register at start), have
++  people grant each agent (`grants.grant({ agent })`), then remove `agentCallers`.
++
+ ## File links
+ 
+ - A file link is a capability: holding it downloads that file until it expires (≤ 1 hour). The function
+-- 
+2.43.0
+

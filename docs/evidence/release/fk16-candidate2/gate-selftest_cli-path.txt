@@ -1,0 +1,17 @@
+## stdout
+✗ required @authboundry/local + @authboundry/core: LACKS authority.local: a private AuthBoundry started beside the application, whose native server (@authboundry/core) makes every decision [probe failed: AUTHBOUNDRY_CLI_PATH is set (/nonexistent/authboundry): the server under test would not be @authboundry/core's]
+    when absent: applications with authority.local cannot decide anything
+– optional @authboundry/local + @authboundry/core: LACKS decisions prove the executor by its agent credential (executorProof.proven) [probe failed: AUTHBOUNDRY_CLI_PATH is set (/nonexistent/authboundry): the server under test would not be @authboundry/core's]
+    when absent: decisions still decide; executorProof reads asserted (GUARANTEES)
+– optional @authboundry/local: LACKS per-agent delegation: agent callers decide as themselves; grants name agents; ctx.authority.agents [probe failed: AUTHBOUNDRY_CLI_PATH is set (/nonexistent/authboundry): the server under test would not be @authboundry/core's]
+    when absent: agent callers are refused (unavailable) by default; an owner may opt in to shared executor grants with authority.local.agentCallers: "executor-grants" (wider authority, recorded as local-executor-grants-opt-in, readiness warns)
+    upstream: authboundry 001ce42 (unreleased after 0.1.0)
+– optional @appport/services: LACKS ctx.services.notifications.page / unreadCount / markAllRead [missing inbox, unreadCount, markAllRead]
+    when absent: those three operations refuse FAILED_PRECONDITION naming the release; list() works
+    upstream: appport-services 110d72a (unreleased after 0.19.0)
+– optional @feltdb/core: LACKS ctx.db where … in (set-membership queries) [INVALID_QUERY: each condition requires a field and exactly one operator]
+    when absent: queries with `in` refuse FAILED_PRECONDITION naming the release; eq queries work
+    upstream: flow_db 930bc64 (unreleased after 0.21.0)
+artifact: {"contract":true,"localAuthority":true,"readiness":true}
+## stderr
+✗ REQUIRED prerequisite absent: @authboundry/local + @authboundry/core: authority.local: a private AuthBoundry started beside the application, whose native server (@authboundry/core) makes every decision (probe failed: AUTHBOUNDRY_CLI_PATH is set (/nonexistent/authboundry): the server under test would not be @authboundry/core's)

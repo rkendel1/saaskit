@@ -1,0 +1,8 @@
+exit: 1
+# tests 37
+# pass 35
+# fail 2
+# skipped 0
+# duration_ms 47652.161899
+not ok 1 - acceptance: build, sell, meter, bill, delegate, upgrade, cancel — all auditable
+not ok 3 - agent consumption is attributed, budgeted, approved by a person, and revocable

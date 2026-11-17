@@ -6,7 +6,8 @@
  * Expected behaviour follows the decision (docs/REMEDIATION_PLAN.md, FK-16, Option 2):
  *   - default: an agent caller decides only as itself; with @authboundry/local 0.1.0 it is `unavailable`;
  *   - authority.local.agentCallers: "executor-grants" (owner's opt-in, FeltKit ≥ 0.3.32): it shares the
- *     executor's grants, and every such decision is marked compatibility: "executor-grants";
+ *     executor's grants, and every such decision records authorityMode "local-executor-grants-opt-in";
+ *   - FeltKit ≥ 0.3.32 records authorityMode on every decision (absent, read as null, before it);
  *   - a decision naming an agent is never decided as the executor; an agent never decides as another.
  */
 import { test } from "node:test";
@@ -20,6 +21,8 @@ const local = (app.options as any).authority?.local;
 const OPTED_IN = typeof local === "object" && local?.agentCallers === "executor-grants";
 const FELTKIT = JSON.parse(readFileSync(new URL("../node_modules/@feltdb/feltkit/package.json", import.meta.url), "utf8")).version as string;
 const PER_AGENT = readFileSync(new URL("../node_modules/@authboundry/local/index.js", import.meta.url), "utf8").includes("registerAgent");
+const HAS_MODE = FELTKIT.localeCompare("0.3.32", undefined, { numeric: true }) >= 0;
+const modeOr = (m: string) => (HAS_MODE ? m : null);
 const MODE = `FeltKit ${FELTKIT}, agentCallers ${OPTED_IN ? "executor-grants" : "default"}, per-agent ${PER_AGENT ? "installed" : "absent"}`;
 
 test(`FK-07 regression: every documented onBehalfOf form resolves to one principal; unrelated delegation denied [${MODE}]`, async () => {
@@ -33,7 +36,7 @@ test(`FK-07 regression: every documented onBehalfOf form resolves to one princip
     const g = await c.mutation(api.agents.delegateSpending, {});
     for (const form of ["plain", "prefixed", "person", "principal"]) {
       const d = await c.mutation(probe, { form });
-      assert.deepEqual([d.allowed, d.onBehalfOf, d.delegationId, d.compatibility ?? null], [true, "user:grace", g.id, null], `${form} after the grant`);
+      assert.deepEqual([d.allowed, d.onBehalfOf, d.delegationId, d.authorityMode], [true, "user:grace", g.id, modeOr("local-executor")], `${form} after the grant`);
     }
     const other = await c.mutation(probe, { form: "other" });
     assert.deepEqual([other.allowed, other.outcome], [false, "deny"], "linus never delegated");
@@ -52,12 +55,13 @@ test(`FK-16: an agent caller's decision follows the owner's explicit choice, and
     await c.mutation(api.agents.delegateSpending, {});
     const d = await bot.mutation(probe, { form: "plain" });
     if (PER_AGENT) {
-      assert.deepEqual([d.allowed, d.compatibility ?? null], [false, null], "per-agent installed: the executor's grant never allows an agent");
+      assert.deepEqual([d.allowed, d.authorityMode], [false, modeOr("local-per-agent")], "per-agent installed: the executor's grant never allows an agent");
     } else if (OPTED_IN) {
-      assert.deepEqual([d.allowed, d.outcome, d.executor, d.compatibility], [true, "allow", "agent:saaskit", "executor-grants"], `opt-in: ${d.reason}`);
+      assert.deepEqual([d.allowed, d.outcome, d.executor, d.authorityMode], [true, "allow", "agent:saaskit", "local-executor-grants-opt-in"], `opt-in: ${d.reason}`);
       assert.equal(d.proven, true);
     } else {
-      assert.deepEqual([d.allowed, d.outcome, d.compatibility ?? null], [false, "unavailable", null], "default: fail closed");
+      assert.deepEqual([d.allowed, d.outcome, d.authorityMode], [false, "unavailable", modeOr("local-per-agent")], "default: fail closed");
+      if (HAS_MODE) assert.equal(d.lasting, true, "a configuration state: retrying does not change it");
       assert.match(String(d.reason), /registerAgent/);
     }
   } finally {
@@ -73,7 +77,7 @@ test(`FK-16: a decision naming an agent never falls back to the executor [${MODE
     await c.mutation(api.agents.delegateSpending, {});
     const d = await c.mutation(probe, { form: "plain", agent: "agent-ops" });
     assert.equal(d.allowed, false);
-    assert.equal(d.compatibility ?? null, null);
+    assert.notEqual(d.authorityMode, "local-executor-grants-opt-in", "never the executor's grants");
     if (!PER_AGENT) {
       assert.equal(d.outcome, "unavailable");
       assert.match(String(d.reason), /registerAgent/);

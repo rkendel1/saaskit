@@ -1,0 +1,2 @@
+create-feltkit-0.3.32.tgz sha256 a9e6e4cb4cb802b6ba6750fd3aaff3547022b04a4241cebefa0c28bcff85b07a sha512-AtCKHxAc0iQo3iyKdcSGGtk51GEj3w3JWfuQwojt9Fk9X9+EySH8K+qN6Gr+ois0eoO5SDjeknnuXhJhHcFH2A==
+feltdb-feltkit-0.3.32.tgz sha256 3d0d1f8c539c1961a2fd042fdb992f8fdf723b3d6cc43e8e88c6b0b83c6f1165 sha512-vlC2Dsi5ksKjmLMOydpNNYBQU9/2mAQea9sHRBHcCGB88WJvEeAoDYiRM1YOgZ426nfU6lXfU0B9PPWPVdzxug==

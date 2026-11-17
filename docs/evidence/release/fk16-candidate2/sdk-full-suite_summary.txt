@@ -1,0 +1,15 @@
+# tests 751
+# pass 741
+# fail 0
+# cancelled 0
+# skipped 10
+ok 444 - per-agent delegation: each app.agent decides as itself; a grant to one agent allows only it; revoking it stops only it # SKIP the installed @authboundry/local has no per-agent delegation (registerAgent): needs t
+ok 457 - in + orderBy createdAt desc: an index merge over the ordered index FeltKit declares; cursors page it exactly # SKIP the installed @feltdb/core has no set-membership queries (in): needs the release after 0.21.0 (
+ok 458 - the ordered index is durable: a restart declares nothing again and still merges # SKIP the installed @feltdb/core has no set-membership queries (in): needs the release after 0.21.0 (flow_db 930bc64)
+ok 459 - in is validated before FeltDB sees it # SKIP the installed @feltdb/core has no set-membership queries (in): needs the release after 0.21.0 (flow_db 930bc64)
+ok 460 - mutations: in sees pending writes, and is fenced per value (a write to a value in the set conflicts, one outside does not) # SKIP the installed @feltdb/core has no set-membership queries (in): needs the release 
+ok 464 - the runtime declares the ordered index at start, and ctx.db.query's in feed is an index merge # SKIP the installed @feltdb/core has no set-membership queries (in): needs the release after 0.21.0 (flow_db 930bc64
+ok 466 - the contract carries the recipient timeline indexes the inbox reads # SKIP @appport/services 0.19.0 has no inbox paging (NotificationService.inbox): needs the release after 0.19.0 (appport-services 110d72a)
+ok 467 - page: the caller's inbox newest first, in bounded pages, with cursors bound to the walk # SKIP @appport/services 0.19.0 has no inbox paging (NotificationService.inbox): needs the release after 0.19.0 (appport-se
+ok 468 - unreadCount and markAllRead: bounded, the caller's own, authorized as markRead # SKIP @appport/services 0.19.0 has no inbox paging (NotificationService.inbox): needs the release after 0.19.0 (appport-services 11
+ok 560 - agent delegation through AuthBoundry: allowed within a grant, never beyond it, and refused on the next call after revocation # SKIP the installed @authboundry/local has no per-agent delegation (registerAgent): n

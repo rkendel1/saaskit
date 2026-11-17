@@ -1,0 +1,15 @@
+## stdout
+✓ required @authboundry/local + @authboundry/core: has authority.local: a private AuthBoundry started beside the application, whose native server (@authboundry/core) makes every decision [decision 200 deny (delegation_missing)]
+✓ optional @authboundry/local + @authboundry/core: has decisions prove the executor by its agent credential (executorProof.proven) [{"agent_credential_id":"1304ce863986842d83951750","method":"agent_credential","principal_id":"agent:feltkit-release-probe","proven":true}]
+– optional @authboundry/local: LACKS per-agent delegation: agent callers decide as themselves; grants name agents; ctx.authority.agents [missing registerAgent, revokeAgent, agentCredentialOf, agents]
+    when absent: agent callers are refused (unavailable) by default; an owner may opt in to shared executor grants with authority.local.agentCallers: "executor-grants" (wider authority, recorded as local-executor-grants-opt-in, readiness warns)
+    upstream: authboundry 001ce42 (unreleased after 0.1.0)
+– optional @appport/services: LACKS ctx.services.notifications.page / unreadCount / markAllRead [missing inbox, unreadCount, markAllRead]
+    when absent: those three operations refuse FAILED_PRECONDITION naming the release; list() works
+    upstream: appport-services 110d72a (unreleased after 0.19.0)
+– optional @feltdb/core: LACKS ctx.db where … in (set-membership queries) [INVALID_QUERY: each condition requires a field and exactly one operator]
+    when absent: queries with `in` refuse FAILED_PRECONDITION naming the release; eq queries work
+    upstream: flow_db 930bc64 (unreleased after 0.21.0)
+artifact: {"contract":true,"localAuthority":true,"readiness":true}
+## stderr
+✗ npm is configured offline: registry identity cannot be verified from the cache alone

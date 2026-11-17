@@ -1,0 +1,66 @@
+## stdout
+✓ required @authboundry/local + @authboundry/core: has authority.local: a private AuthBoundry started beside the application, whose native server (@authboundry/core) makes every decision [decision 200 deny (delegation_missing)]
+✓ optional @authboundry/local + @authboundry/core: has decisions prove the executor by its agent credential (executorProof.proven) [{"agent_credential_id":"7c6c2cf5b6314e5abd2a587b","method":"agent_credential","principal_id":"agent:feltkit-release-probe","proven":true}]
+– optional @authboundry/local: LACKS per-agent delegation: agent callers decide as themselves; grants name agents; ctx.authority.agents [missing registerAgent, revokeAgent, agentCredentialOf, agents]
+    when absent: agent callers are refused (unavailable) by default; an owner may opt in to shared executor grants with authority.local.agentCallers: "executor-grants" (wider authority, recorded as local-executor-grants-opt-in, readiness warns)
+    upstream: authboundry 001ce42 (unreleased after 0.1.0)
+– optional @appport/services: LACKS ctx.services.notifications.page / unreadCount / markAllRead [missing inbox, unreadCount, markAllRead]
+    when absent: those three operations refuse FAILED_PRECONDITION naming the release; list() works
+    upstream: appport-services 110d72a (unreleased after 0.19.0)
+– optional @feltdb/core: LACKS ctx.db where … in (set-membership queries) [INVALID_QUERY: each condition requires a field and exactly one operator]
+    when absent: queries with `in` refuse FAILED_PRECONDITION naming the release; eq queries work
+    upstream: flow_db 930bc64 (unreleased after 0.21.0)
+✗ registry  @appport/authorization@1.2.0 (node_modules/@appport/authorization): unreachable could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/client@1.1.8 (node_modules/@appport/client): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/core@1.8.0 (node_modules/@appport/core): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/integration@1.2.5 (node_modules/@appport/integration): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/mcp@1.3.9 (node_modules/@appport/mcp): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/mobile@1.0.12 (node_modules/@appport/mobile): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/protocol@1.5.0 (node_modules/@appport/protocol): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/resolver-client@0.3.0 (node_modules/@appport/resolver-client): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/resolver-core@0.2.0 (node_modules/@appport/resolver-core): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/schema@1.1.6 (node_modules/@appport/schema): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/sdk@1.9.0 (node_modules/@appport/sdk): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/server@1.3.3 (node_modules/@appport/server): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/services@0.19.0 (node_modules/@appport/services): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/services@0.18.0 (node_modules/@authboundry/core/node_modules/@appport/services): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/testing@1.2.6 (node_modules/@appport/testing): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/transport-electron@1.0.16 (node_modules/@appport/transport-electron): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/transport-http@1.1.8 (node_modules/@appport/transport-http): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/transport-inprocess@1.0.16 (node_modules/@appport/transport-inprocess): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/transport-tauri@1.0.12 (node_modules/@appport/transport-tauri): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @appport/transport-websocket@1.0.12 (node_modules/@appport/transport-websocket): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @authboundry/core-linux-x64@1.19.0 (node_modules/@authboundry/core-linux-x64): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @authboundry/core@1.19.0 (node_modules/@authboundry/core): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @authboundry/local@0.1.0 (node_modules/@authboundry/local): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @feltdb/core@0.21.0 (node_modules/@feltdb/core): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  @feltdb/webllm@0.21.0 (node_modules/@feltdb/webllm): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+✗ registry  mailerport@0.1.0 (node_modules/mailerport): unreachable not attempted: could not reach the registry (ECONNREFUSED): "error": {
+artifact: {"contract":true,"localAuthority":true,"readiness":true}
+## stderr
+✗ @appport/authorization@1.2.0 at node_modules/@appport/authorization could not be verified: registry unreachable: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/client@1.1.8 at node_modules/@appport/client could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/core@1.8.0 at node_modules/@appport/core could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/integration@1.2.5 at node_modules/@appport/integration could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/mcp@1.3.9 at node_modules/@appport/mcp could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/mobile@1.0.12 at node_modules/@appport/mobile could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/protocol@1.5.0 at node_modules/@appport/protocol could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/resolver-client@0.3.0 at node_modules/@appport/resolver-client could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/resolver-core@0.2.0 at node_modules/@appport/resolver-core could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/schema@1.1.6 at node_modules/@appport/schema could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/sdk@1.9.0 at node_modules/@appport/sdk could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/server@1.3.3 at node_modules/@appport/server could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/services@0.19.0 at node_modules/@appport/services could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/services@0.18.0 at node_modules/@authboundry/core/node_modules/@appport/services could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/testing@1.2.6 at node_modules/@appport/testing could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/transport-electron@1.0.16 at node_modules/@appport/transport-electron could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/transport-http@1.1.8 at node_modules/@appport/transport-http could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/transport-inprocess@1.0.16 at node_modules/@appport/transport-inprocess could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/transport-tauri@1.0.12 at node_modules/@appport/transport-tauri could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @appport/transport-websocket@1.0.12 at node_modules/@appport/transport-websocket could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @authboundry/core-linux-x64@1.19.0 at node_modules/@authboundry/core-linux-x64 could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @authboundry/core@1.19.0 at node_modules/@authboundry/core could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @authboundry/local@0.1.0 at node_modules/@authboundry/local could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @feltdb/core@0.21.0 at node_modules/@feltdb/core could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ @feltdb/webllm@0.21.0 at node_modules/@feltdb/webllm could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
+✗ mailerport@0.1.0 at node_modules/mailerport could not be verified: registry unreachable: not attempted: could not reach the registry (ECONNREFUSED): FetchError: request to http://127.0.0.1:9/@appport%2fauthorization failed, reason: connect ECONNREFUSED 127.0.0.1:9
