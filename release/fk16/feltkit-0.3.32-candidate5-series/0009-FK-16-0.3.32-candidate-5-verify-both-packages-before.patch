@@ -1,0 +1,141 @@
+From cc89e0033ef29c3f124de14da23ad322c781a14e Mon Sep 17 00:00:00 2001
+From: FK-16 candidate <noreply@anthropic.com>
+Date: Tue, 17 Nov 2026 12:37:27 +0000
+Subject: [PATCH 9/9] FK-16 (0.3.32 candidate 5): verify both packages before
+ promoting latest; lasting configuration refusals
+
+From the independent review of 3debafa:
+- publish-packages: before moving latest, both packages (also one published by an earlier, resumed run)
+  must be served with the checked sha512; registry lag retried briefly; a mismatch stops with recovery
+  instructions (latest unchanged, pending only).
+- "No authority configured" and an authority credential that is not set are lasting refusals: an
+  integration says "retrying will not change this", not "try again". Tested.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01HaRh2AeLLCdd3FVn7atuCR
+---
+ CHANGELOG.md                                  |  7 ++---
+ .../sdk/src/runtime/application-authority.ts  |  4 ++-
+ packages/sdk/test/authority-compat.test.ts    | 12 +++++++++
+ scripts/publish-packages.mjs                  | 26 ++++++++++++++++---
+ 4 files changed, 41 insertions(+), 8 deletions(-)
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 62a5a0e..a22d3d8 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -44,8 +44,8 @@ owner decision. The hosted-authority contract is unchanged.
+   shared executor grants (warn).
+ - **Integrations:** a call the configuration cannot decide is now `FAILED_PRECONDITION` ("retrying will not change
+   this"), not `UNAVAILABLE` "try again", for any caller: an agent caller without per-agent delegation installed, a
+-  local authority that failed to start, no authority address. An authority that cannot answer now stays
+-  `UNAVAILABLE` (retryable).
++  local authority that failed to start, no authority address, no authority configured, an authority credential that
++  is not set. An authority that cannot answer now stays `UNAVAILABLE` (retryable).
+ - **One capability contract.** "Per-agent delegation installed" means the started authority offers
+   `registerAgent`, `revokeAgent`, `agentCredentialOf` and `agents` (`runtime/authority-contract.ts`:
+   `missingPerAgentMethods`, and `startProbeAuthority` to probe an installed package). The runtime, FeltKit's tests
+@@ -60,7 +60,8 @@ owner decision. The hosted-authority contract is unchanged.
+     FK-16 content, the commit they come from; uncommitted changes may only be version strings in the release
+     manifests. The compatibility tests (`test/authority-compat.test.ts`, 7, none may skip) run against the packed
+     `@feltdb/feltkit`'s `dist`, not `src/`. `scripts/publish-packages.mjs` publishes exactly those checked tarballs
+-    and, before moving `latest`, requires the registry to serve their exact sha512.
++    and, before moving `latest`, requires the registry to serve their exact sha512 for both packages, including one
++    published by an earlier, resumed run; otherwise `latest` is not moved and the message says how to recover.
+   - *Capabilities by use.* A private AuthBoundry is started from the installed `@authboundry/local` and
+     `@authboundry/core` and asked for a decision (required; `AUTHBOUNDRY_CLI_PATH` refused); per-agent delegation is
+     judged on it with the packed artifact's own contract (`startProbeAuthority`, `missingPerAgentMethods`).
+diff --git a/packages/sdk/src/runtime/application-authority.ts b/packages/sdk/src/runtime/application-authority.ts
+index bb553f9..6f13eec 100644
+--- a/packages/sdk/src/runtime/application-authority.ts
++++ b/packages/sdk/src/runtime/application-authority.ts
+@@ -112,7 +112,7 @@ export function applicationAuthority(host: AuthorityHost): ApplicationAuthority
+       let authorityMode: AuthorityMode | null = null;
+       let lasting = false;
+       const decisionOf = (outcome: ApplicationAuthorityDecision["outcome"], reason: string): ApplicationAuthorityDecision => ({ allowed: false, outcome, decisionId: null, reason, capability: request.capability, executor, agent, onBehalfOf, delegationId: null, executorProof: { proven: false, method: "asserted", principal: executor, agentCredentialId: null }, authorityMode, ...(lasting ? { lasting } : {}) });
+-      if (!config) return decisionOf("unavailable", "No authority is configured (feltkit({ authority })), so nothing is allowed.");
++      if (!config) return ((lasting = true), decisionOf("unavailable", "No authority is configured (feltkit({ authority })), so nothing is allowed.")); // a configuration state
+       // Every refusal FeltKit makes itself (before or instead of asking AuthBoundry) is recorded like a decision.
+       const refused = async (outcome: ApplicationAuthorityDecision["outcome"], reason: string): Promise<ApplicationAuthorityDecision> => {
+         const r = decisionOf(outcome, reason);
+@@ -173,7 +173,9 @@ export function applicationAuthority(host: AuthorityHost): ApplicationAuthority
+         );
+       } catch (error) {
+         // A credential that is missing or unreadable is a refusal, named without its value. Nothing was evaluated.
++        // One that is not set (or not usable here) is a configuration state: retrying does not change it.
+         authorityMode = null;
++        lasting = ["CREDENTIAL_UNAVAILABLE", "INVALID_REQUEST"].includes(String((error as { code?: unknown }).code));
+         return refused("unavailable", `The authority's credential is unavailable: ${(error as Error).message}`);
+       }
+       // Recorded before it is returned: the evidence (and the attempt it belongs to) has it first.
+diff --git a/packages/sdk/test/authority-compat.test.ts b/packages/sdk/test/authority-compat.test.ts
+index 6a258a5..e95ce69 100644
+--- a/packages/sdk/test/authority-compat.test.ts
++++ b/packages/sdk/test/authority-compat.test.ts
+@@ -310,6 +310,18 @@ test("FK-16 configuration: only an authority.local object is validated; 0.3.31's
+       for (const k of FK16_ENV) delete process.env[k];
+     }
+   }
++  // A credential that is not set is a configuration state: lasting (an integration says "retrying will not change this").
++  {
++    const runtime = await start(MODES, { FK16_HOSTED: "1", FK16_AB_URL: "http://127.0.0.1:9" });
++    try {
++      const d = await run(runtime, ada, "work:decide");
++      assert.deepEqual([d.allowed, d.outcome, d.authorityMode, d.lasting], [false, "unavailable", null, true], d.reason);
++      assert.match(String(d.reason), /credential/i);
++    } finally {
++      await runtime.close();
++      for (const k of FK16_ENV) delete process.env[k];
++    }
++  }
+   // A disabled local authority with no AuthBoundry address: off, as in 0.3.31; readiness says nothing can be decided.
+   for (const local of ["false", "null", "0", '""']) {
+     const runtime = await start(MODES, { FK16_LOCAL: local });
+diff --git a/scripts/publish-packages.mjs b/scripts/publish-packages.mjs
+index 9e22be1..5eb6279 100644
+--- a/scripts/publish-packages.mjs
++++ b/scripts/publish-packages.mjs
+@@ -146,11 +146,21 @@ try {
+   const publishArgs = ["--access", "public", "--tag", stagingTag, ...(dryRun ? ["--dry-run"] : [])];
+   stage = "publish";
+   for (const name of missing) run("npm", ["publish", tarball[name].file, ...publishArgs]);
+-  // Before "latest" moves: the registry must serve exactly the checked tarballs.
++  // Before "latest" moves: the registry must serve exactly the checked tarballs, for BOTH packages, including one
++  // published by an earlier (resumed) run. The registry can lag just after a publish: a few attempts, then stop.
+   if (!dryRun) {
+-    for (const name of missing) {
+-      const served = capture("npm", ["view", `${name}@${next}`, "dist.integrity", "--prefer-online"]);
+-      if (served !== tarball[name].integrity) throw new Error(`${name}@${next} on the registry is ${served}, not the checked ${tarball[name].integrity}: "latest" is not moved`);
++    stage = "verify";
++    for (const name of [sdk.name, create.name]) {
++      let served = null;
++      for (let attempt = 1; attempt <= 5 && served !== tarball[name].integrity; attempt++) {
++        try {
++          served = capture("npm", ["view", `${name}@${next}`, "dist.integrity", "--prefer-online"]);
++        } catch {
++          served = null;
++        }
++        if (served !== tarball[name].integrity && attempt < 5) execFileSync("sleep", [String(attempt * 5)]);
++      }
++      if (served !== tarball[name].integrity) throw new Error(`${name}@${next} on the registry is ${served ?? "(not readable)"}, not the checked ${tarball[name].integrity}`);
+     }
+   }
+   if (distTag === "latest") {
+@@ -177,6 +187,14 @@ try {
+         `Finish with npm dist-tag add ${sdk.name}@${next} latest && npm dist-tag add ${create.name}@${next} latest, then commit and tag v${next}.`,
+     );
+   }
++  if (stage === "verify" && !dryRun) {
++    fail(
++      `${error.message}. "latest" was NOT moved: users still install the previous release. ${next} is on npm under the "pending" tag only. ` +
++        `If the registry was only slow, check with npm view <package>@${next} dist.integrity and, when both equal the checked tarballs ` +
++        `(${process.env.FELTKIT_RELEASE_ARTIFACT_DIR}/artifact.json), move latest by hand: npm dist-tag add ${sdk.name}@${next} latest && npm dist-tag add ${create.name}@${next} latest, then commit and tag v${next}. ` +
++        `If they differ, do not promote: ${next} is not the release that was checked; publish a new version.`,
++    );
++  }
+   if (stage === "publish" && !dryRun) {
+     fail(
+       `${error.message}. "latest" still points at the previous release, so nothing users install has changed. ` +
+-- 
+2.43.0
+

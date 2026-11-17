@@ -1,0 +1,625 @@
+From 1736d4ef7a4fb8cd75811a26789d08908ad0032a Mon Sep 17 00:00:00 2001
+From: FK-16 candidate <noreply@anthropic.com>
+Date: Tue, 17 Nov 2026 01:42:10 +0000
+Subject: [PATCH 5/9] FK-16 (0.3.32 candidate 3): gate checks the packed
+ artifact and refuses non-registry copies; evidence fixes
+
+From the independent review of 9f13291:
+- B1: linked and file: upstream copies are failures ("not a registry copy"), never skipped.
+- B2: the gate packs @feltdb/feltkit from the tree, inspects the tarball (version, FK-16 content, commit,
+  only release manifests may differ), probes with the tarball's own contract, and reports its sha512.
+- One capability contract: startProbeAuthority + missingPerAgentMethods (runtime/authority-contract.ts),
+  used by the gate and by local-authority/policies tests (no more source-text detection).
+- Scope registries that differ from the reported registry are refused.
+- A failed local start refuses as lasting (no "try again"); an empty authority-url variable is no address
+  everywhere; authorityMode is null when nothing was evaluated; every refusal FeltKit makes is recorded.
+- authorityMode optional in the exported type; AuthorityMode exported; LOCAL-AUTHORITY.md shipped.
+- Docs state each record's actual durability; GUARANTEES decide row no longer says "always the executor".
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01HaRh2AeLLCdd3FVn7atuCR
+---
+ CHANGELOG.md                                  | 32 ++++---
+ docs/GUARANTEES.md                            |  4 +-
+ docs/LOCAL-AUTHORITY.md                       |  2 +-
+ docs/SECURITY.md                              |  8 +-
+ packages/sdk/src/docs.ts                      |  1 +
+ packages/sdk/src/index.ts                     |  1 +
+ .../sdk/src/runtime/application-authority.ts  | 36 ++++---
+ .../sdk/src/runtime/authority-contract.ts     | 37 ++++++++
+ packages/sdk/src/runtime/context.ts           |  9 +-
+ packages/sdk/src/runtime/local-authority.ts   |  3 +-
+ packages/sdk/src/runtime/runtime.ts           |  1 +
+ packages/sdk/test/authority-compat.test.ts    | 28 +++++-
+ packages/sdk/test/local-authority.test.ts     |  5 +-
+ packages/sdk/test/policies.test.ts            |  3 +-
+ scripts/release-prerequisites.mjs             | 93 ++++++++++++-------
+ 15 files changed, 188 insertions(+), 75 deletions(-)
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index d97f09d..72eb488 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -23,11 +23,16 @@ owner decision. The hosted-authority contract is unchanged.
+   the hosted mode. One explicit policy for hosted and local authority is deferred to a later minor release, with a
+   migration path.
+ - **New: `authorityMode` on every authority decision**: `local-executor`, `local-per-agent`,
+-  `local-executor-grants-opt-in`, `hosted-executor`, `hosted-executor-grants` (null when nothing was evaluated). It is
+-  kept in every durable record of the decision: activity (`authority.decide`, now also for refusals FeltKit makes
+-  before asking AuthBoundry), invocation attempt decision notes, policy decision records
+-  (`delegations[].authorityMode`) and integration call records (`authority.authorityMode`). Evidence only, never an
+-  input to authorization.
++  `local-executor-grants-opt-in`, `hosted-executor`, `hosted-executor-grants` (null when nothing was evaluated:
++  no address, a local authority not running, an invalid request, an unreadable credential). It is kept in each
++  record of the decision, with that record's durability: policy decision records (`delegations[].authorityMode`),
++  integration call records (`authority.authorityMode`), invocation attempt decision notes, and the best-effort
++  activity log (`authority.decide`, now for every refusal FeltKit makes itself too). Evidence only, never an input to
++  authorization. Optional in the exported type (`ApplicationAuthorityDecision.authorityMode?`, `AuthorityMode`
++  exported) so existing implementations keep compiling.
++- **A failed local start** refuses every decision as `lasting` (it is not retried until the application restarts),
++  and an empty authority-url variable means "no address" everywhere (readiness and decisions agree).
++- **`LOCAL-AUTHORITY.md` is now shipped** with the package (`feltkit docs`).
+ - **Never widened:** a decision that names an agent is `unavailable` (no fallback) in every mode; an agent naming
+   another agent is a deny; grants naming an agent and `ctx.authority.agents` stay `FAILED_PRECONDITION` without
+   per-agent delegation. With per-agent delegation installed, `agentCallers` has no effect.
+@@ -37,8 +42,10 @@ owner decision. The hosted-authority contract is unchanged.
+ - **Integrations:** an agent caller refused because per-agent delegation is not installed is now
+   `FAILED_PRECONDITION` ("retrying will not change this"), not `UNAVAILABLE` "try again".
+ - **One capability contract.** "Per-agent delegation installed" means the started authority offers
+-  `registerAgent`, `revokeAgent`, `agentCredentialOf` and `agents` (`runtime/authority-contract.ts`). The runtime,
+-  the tests and the release gate all use it.
++  `registerAgent`, `revokeAgent`, `agentCredentialOf` and `agents` (`runtime/authority-contract.ts`:
++  `missingPerAgentMethods`, and `startProbeAuthority` to probe an installed package). The runtime, FeltKit's tests
++  and the release gate all use it; with the published `@authboundry/local` 0.1.0, per-agent tests skip and the
++  gate's compatibility tests exercise the refusal and opt-in paths only.
+ - **Migrating from 0.3.30:** to keep agents working on `@authboundry/local` 0.1.0, add
+   `agentCallers: "executor-grants"` deliberately. To leave it: install an `@authboundry/local` with per-agent
+   delegation, register agents (`ctx.authority.agents.register`, an operator's act; `app.agent`s register at start),
+@@ -46,13 +53,16 @@ owner decision. The hosted-authority contract is unchanged.
+ - **Release integrity** (`scripts/release-prerequisites.mjs`, run by `release-check`): capabilities are verified by
+   use: a private AuthBoundry is started from the installed `@authboundry/local` and `@authboundry/core` and asked
+   for a decision (required; `AUTHBOUNDRY_CLI_PATH` is refused), and per-agent delegation is judged on it with the
+-  contract imported from the built `dist`. Every installed copy (nested ones included) of an `@authboundry`,
++  contract imported from the packed artifact. Every installed copy (nested ones included) of an `@authboundry`,
+   `@appport`, `@feltdb` or `mailerport` package is compared file by file with the registry's tarball for its
+   version; registry metadata is fetched online and the tarball must match the registry's integrity; "not
+   published" (registry 404) and "registry unreachable" are reported as different failures; offline npm is
+-  refused. The compatibility tests (`test/authority-compat.test.ts`, 7 tests) must all run, none skipped. The
+-  gate checks the built `packages/sdk/dist` (what `npm pack` ships); artifact identity of the packed tarball is
+-  verified at install time by the consuming application's release gate.
++  refused; a linked or `file:` copy is a failure ("not a registry copy"), never skipped; a scope registry that
++  differs from the reported one is refused. The compatibility tests (`test/authority-compat.test.ts`, 7 tests) must
++  all run, none skipped. The artifact is checked as packed: the gate packs `@feltdb/feltkit` from the tree, inspects
++  the tarball (version, content, the commit it comes from; only release manifests may differ from that commit),
++  probes with the tarball's own contract module, and reports its sha512, so the published package can be compared
++  with exactly what was checked.
+ 
+ ### Compatibility matrix
+ 
+diff --git a/docs/GUARANTEES.md b/docs/GUARANTEES.md
+index 6bec1a8..34133f7 100644
+--- a/docs/GUARANTEES.md
++++ b/docs/GUARANTEES.md
+@@ -687,9 +687,9 @@ across environments. Nothing is copied from development.
+ 
+ | Primitive | Guarantee | Verified by |
+ |---|---|---|
+-| `ctx.authority.decide({ capability, onBehalfOf?, agent?, resource?, context? })` | AuthBoundry through the same `authBoundryAuthority` the platform uses. The asking principal is always `feltkit({ authority }).executor`; `onBehalfOf` names the requester, and an allow for it must echo that requester and a `delegation_id`. `onBehalfOf` is mapped as `ctx.authority.grants` maps the delegator (FRAME-GAP-11): an application principal id (no `:`, e.g. `"ada"`) goes through `authority.principal` (default `user:<id>`); an AuthBoundry principal (`<type>:<id>`, e.g. `"user:ada"`) is sent unchanged; `{ person }` always maps and `{ principal }` never does, for ids that break that rule. The decision's `onBehalfOf` is the principal asked about. Fails closed (unconfigured, unreachable, slow, malformed, inexact, missing credential). Credentials are custody references resolved per decision; each decision is in the activity log with its ids, never a credential | `test/application-platform.test.ts`, `test/local-authority.test.ts` (both forms against a real local AuthBoundry) |
++| `ctx.authority.decide({ capability, onBehalfOf?, agent?, resource?, context? })` | AuthBoundry through the same `authBoundryAuthority` the platform uses. The asking principal is `feltkit({ authority }).executor`, except where an agent decides as itself (the per-agent row below; `authorityMode` says which); `onBehalfOf` names the requester, and an allow for it must echo that requester and a `delegation_id`. `onBehalfOf` is mapped as `ctx.authority.grants` maps the delegator (FRAME-GAP-11): an application principal id (no `:`, e.g. `"ada"`) goes through `authority.principal` (default `user:<id>`); an AuthBoundry principal (`<type>:<id>`, e.g. `"user:ada"`) is sent unchanged; `{ person }` always maps and `{ principal }` never does, for ids that break that rule. The decision's `onBehalfOf` is the principal asked about. Fails closed (unconfigured, unreachable, slow, malformed, inexact, missing credential). Credentials are custody references resolved per decision; each decision is in the activity log with its ids, never a credential | `test/application-platform.test.ts`, `test/local-authority.test.ts` (both forms against a real local AuthBoundry) |
+ | Per-agent delegation (`authority.local`) | Every `app.agent` is an AuthBoundry agent of the application (`agent:<id>`), registered at each start with its own credential in custody; agents registered at run time (`ctx.authority.agents.register`, needs `feltkit.authority.agents`, never by an agent) are registered again too. A grant may name an agent (`grants.grant({ agent })`) and then allows only that agent. **An agent caller decides as itself, always**, with its own credential: a grant to another agent or to the executor never allows it, and naming another agent is a deny. Anyone else decides as the executor unless it names a registered agent. An unregistered agent is a deny. Revoking a grant stops that grant only; revoking an agent stops all of its grants. With a hosted AuthBoundry (no `authority.local`, or an authority url that resolves), agent callers decide as the executor, with its grants (no per-agent credentials; `authorityMode: "hosted-executor-grants"`); `agentCallers` does not govern hosted authority. With an `@authboundry/local` without per-agent delegation (0.1.0), an agent caller is `unavailable` (`lasting`), unless the owner set `authority.local.agentCallers: "executor-grants"`: then an agent caller naming no agent decides as the executor with its grants (wider authority, as through 0.3.30; `authorityMode: "local-executor-grants-opt-in"`), with a readiness warning; naming an agent is `unavailable` either way. "Per-agent delegation installed" means the started authority offers `registerAgent`, `revokeAgent`, `agentCredentialOf` and `agents` (`runtime/authority-contract.ts`, also used by the release gate) | `test/local-authority.test.ts` (real local AuthBoundry), `test/authority-compat.test.ts` (never skipped) |
+-| Authority evaluation evidence (`authorityMode`) | Every authority decision says how it was evaluated: `local-executor`, `local-per-agent`, `local-executor-grants-opt-in`, `hosted-executor` or `hosted-executor-grants` (null when nothing was evaluated). It is in the returned decision and in every durable record of it: the activity record (`authority.decide`, refusals FeltKit makes before asking AuthBoundry included), the invocation attempt's decision notes, policy decision records (`delegations[].authorityMode`) and integration call records (`authority.authorityMode`). It is evidence only: nothing reads it to authorize | `test/authority-compat.test.ts`, `test/executor-proof.test.ts`, `test/connections.test.ts` |
++| Authority evaluation evidence (`authorityMode`) | Every authority decision says how it was evaluated: `local-executor`, `local-per-agent`, `local-executor-grants-opt-in`, `hosted-executor` or `hosted-executor-grants` (null when nothing was evaluated). It is in the returned decision and in each record FeltKit keeps of it, with that record's own durability: policy decision records (`delegations[].authorityMode`; durable for every refusal and for allows of policies with `evidence: "durable"`), integration call records (`authority.authorityMode`; durable for every call that was sent; a refused call is in the activity log only), the invocation attempt's decision notes (decisions made while an attempt runs), and the activity log (`authority.decide`, every decision including refusals FeltKit makes itself; best effort and bounded: a failed write only warns, `mode: "errors"` keeps no allows, the newest entries are kept). It is evidence only: nothing reads it to authorize | `test/authority-compat.test.ts`, `test/executor-proof.test.ts`, `test/connections.test.ts` |
+ | Readiness `authority.agent-callers` | Reports the mode in effect, never assumed from configuration: hosted (pass, the hosted contract), not yet started (warn: not known), failed start or no authority address (fail), per-agent installed (pass), refused (warn), shared executor grants (warn) | `test/authority-compat.test.ts` |
+ | `ctx.integrations.invoke(capability, input)` | A declared integration operation from application code, as the caller, under the operation's own `access`; the input is validated against the operation's declared schema before anything is sent (`INVALID_ARGUMENT`), as AppPort validates a capability call; its credential resolved for the request only; the call recorded before and after; never in results, records or errors; rotation applies to the next call; a removed credential fails the call | `test/application-platform.test.ts` |
+ | The agent's catalog (`ctx.agent.catalog()` in actions, `runtime.agent.tools(principal)`; `ctx.agent.tools()` is its allowed subset, shaped as model tools) | Every capability the application and its services offer, not a model's tool list: for each, whether this principal may use it (`allowed`, the policy's decision) and how (`invoke`); for an integration operation, its `integration`, its input schema, and `readiness` (not ready while the base URL or the credential's value is missing, with what to fix; never a value). Permission and readiness are separate answers | `test/application-platform.test.ts` |
+diff --git a/docs/LOCAL-AUTHORITY.md b/docs/LOCAL-AUTHORITY.md
+index a3001e3..c3f6720 100644
+--- a/docs/LOCAL-AUTHORITY.md
++++ b/docs/LOCAL-AUTHORITY.md
+@@ -93,7 +93,7 @@ await ctx.authority.agents.register({ id: "mcp-bot" }); // an agent that arrives
+   - **Opt-in, an owner's decision:** `authority: { local: { agentCallers: "executor-grants" } }` lets an agent caller
+     that names no agent be decided as the executor, with the executor's grants, as through FeltKit 0.3.30. This
+     widens authority and is not equivalent to per-agent delegation. Each such decision records
+-    `authorityMode: "local-executor-grants-opt-in"` (decision, activity, invocation, policy and integration records),
++    `authorityMode: "local-executor-grants-opt-in"` (in the decision and the records kept of it; SECURITY.md, "Evidence"),
+     and readiness warns (`authority.agent-callers`). A decision that names an agent is still `unavailable`.
+   - **Hosted AuthBoundry is different:** with an authority url that resolves, agent callers are decided as the
+     executor (`hosted-executor-grants`), the documented hosted contract; `agentCallers` does not govern it.
+diff --git a/docs/SECURITY.md b/docs/SECURITY.md
+index d4575de..62a601b 100644
+--- a/docs/SECURITY.md
++++ b/docs/SECURITY.md
+@@ -201,9 +201,11 @@ than per-agent delegation, and `authority.local.agentCallers` does **not** gover
+ `unavailable`. A later minor release is expected to give hosted and local authority one explicit opt-in policy,
+ with a migration path; 0.3.32 does not change the hosted contract.
+ 
+-**Evidence.** `authorityMode` is in the returned decision, the activity record (`authority.decide`), the invocation
+-attempt's decision notes, policy decision records (`delegations[].authorityMode`) and integration call records
+-(`authority.authorityMode`). It is evidence only, never an input to authorization.
++**Evidence.** `authorityMode` is in the returned decision and in each record FeltKit keeps of it, each with its own
++durability: policy decision records (`delegations[].authorityMode`; durable for refusals, and for allows with
++`evidence: "durable"`), integration call records (`authority.authorityMode`; every call sent), invocation attempt
++decision notes (while an attempt runs), and the activity log (`authority.decide`, refusals included; best effort and
++bounded). It is null when nothing was evaluated. It is evidence only, never an input to authorization.
+ 
+ ## File links
+ 
+diff --git a/packages/sdk/src/docs.ts b/packages/sdk/src/docs.ts
+index b75d03a..11e8afe 100644
+--- a/packages/sdk/src/docs.ts
++++ b/packages/sdk/src/docs.ts
+@@ -25,6 +25,7 @@ export const SHIPPED_DOCS = [
+   ["EXTENSION-HOSTS.md", "Running the app in a browser extension: ownership, token storage, session end, lifecycle, gaps"],
+   ["INVOCATIONS.md", "Surfaces and invocations: registering entry points, the feltkit.invocation/1 contract, the durable lifecycle, dispatch and recovery"],
+   ["EXECUTION.md", "Placement-neutral execution: the control plane and execution environments, the execution contract, adapters, placement, authority and evidence"],
++  ["LOCAL-AUTHORITY.md", "The private AuthBoundry beside the application (authority.local): grants, agents, per-agent delegation and the agentCallers opt-in"],
+   ["CONNECTIONS.md", "People's own connections to integrations (credential.owner: person): connecting, isolation, AuthBoundry at every call (reference implementation)"],
+   ["AGENT-OPERATIONS.md", "Agents: MCP, tasks, proposals, approvals, and evidence"],
+   ["GENERATION.md", "Model generation in an application: actions, streaming, tools as proposals, in-app approvals, caller context"],
+diff --git a/packages/sdk/src/index.ts b/packages/sdk/src/index.ts
+index c0e0ea1..68f3a0c 100644
+--- a/packages/sdk/src/index.ts
++++ b/packages/sdk/src/index.ts
+@@ -36,6 +36,7 @@ export type {
+ } from "./app.js";
+ export { s } from "./schema.js";
+ export type { Doc, InferShape, Schema, ShapeInput, ShapeSchema } from "./schema.js";
++export type { AuthorityMode } from "./runtime/authority-contract.js";
+ export { FeltKitError, fail, isFeltKitError } from "./errors.js";
+ export type { FeltKitErrorCode, FeltKitErrorJSON } from "./errors.js";
+ export type { QueryCtx, MutationCtx, ActionCtx, ActionModel, ActionAgent, AgentCatalogEntry, ActionProposal, AgentCtx, AgentTrigger, Logger, EnvironmentInfo } from "./runtime/context.js";
+diff --git a/packages/sdk/src/runtime/application-authority.ts b/packages/sdk/src/runtime/application-authority.ts
+index 5f18ec5..bb553f9 100644
+--- a/packages/sdk/src/runtime/application-authority.ts
++++ b/packages/sdk/src/runtime/application-authority.ts
+@@ -35,6 +35,8 @@ export interface AuthorityHost {
+   fetch?: typeof fetch;
+   /** The local authority's address while it runs (authority.local), used when no url resolves. */
+   localUrl?: () => Promise<string | null>;
++  /** The local authority's state (authority.local): a failed start is lasting until the application restarts. */
++  localState?: () => string;
+   /** A person's grants (authority.local). */
+   grants?: ApplicationAuthority["grants"];
+   /** The application's agents (authority.local). */
+@@ -81,9 +83,10 @@ export const LOCAL_AGENT_REF = "credential-ref:authboundry-local-agent";
+ 
+ /** The configured AuthBoundry origin, or why there is none. Production never uses a development default. */
+ export function authorityUrl(config: AuthorityConfig, production: boolean, env: NodeJS.ProcessEnv = process.env): string | null {
++  // An empty value (a variable set to "") is no address, for every consumer alike.
+   if (config.url === undefined) return null;
+-  if (typeof config.url === "string") return config.url;
+-  return env[config.url.env] ?? (production ? null : config.url.development ?? null);
++  if (typeof config.url === "string") return config.url || null;
++  return env[config.url.env] || (production ? null : config.url.development || null);
+ }
+ 
+ /** The application id to ask AuthBoundry under: the literal, else the variable, else (outside production) its development value, else the app's name. */
+@@ -108,8 +111,14 @@ export function applicationAuthority(host: AuthorityHost): ApplicationAuthority
+       const onBehalfOf = asked ?? (typeof request.onBehalfOf === "string" ? request.onBehalfOf : null);
+       let authorityMode: AuthorityMode | null = null;
+       let lasting = false;
+-      const refused = (outcome: ApplicationAuthorityDecision["outcome"], reason: string): ApplicationAuthorityDecision => ({ allowed: false, outcome, decisionId: null, reason, capability: request.capability, executor, agent, onBehalfOf, delegationId: null, executorProof: { proven: false, method: "asserted", principal: executor, agentCredentialId: null }, authorityMode, ...(lasting ? { lasting } : {}) });
+-      if (!config) return refused("unavailable", "No authority is configured (feltkit({ authority })), so nothing is allowed.");
++      const decisionOf = (outcome: ApplicationAuthorityDecision["outcome"], reason: string): ApplicationAuthorityDecision => ({ allowed: false, outcome, decisionId: null, reason, capability: request.capability, executor, agent, onBehalfOf, delegationId: null, executorProof: { proven: false, method: "asserted", principal: executor, agentCredentialId: null }, authorityMode, ...(lasting ? { lasting } : {}) });
++      if (!config) return decisionOf("unavailable", "No authority is configured (feltkit({ authority })), so nothing is allowed.");
++      // Every refusal FeltKit makes itself (before or instead of asking AuthBoundry) is recorded like a decision.
++      const refused = async (outcome: ApplicationAuthorityDecision["outcome"], reason: string): Promise<ApplicationAuthorityDecision> => {
++        const r = decisionOf(outcome, reason);
++        await host.record?.({ capability: String(request.capability ?? ""), executor, onBehalfOf, decision: { allowed: false, decisionId: null, outcome: r.outcome, reason: r.reason, onBehalfOf, delegationId: null, executorProof: r.executorProof }, durationMs: 0, authorityMode });
++        return r;
++      };
+       // Which principal decides: the executor, or an agent with its own credential (never another's).
+       const external = authorityUrl(config, host.production, host.env);
+       const resolved: AgentResolution = host.agentFor
+@@ -122,24 +131,24 @@ export function applicationAuthority(host: AuthorityHost): ApplicationAuthority
+       if ("refused" in resolved) {
+         if (request.agent !== undefined) agent = String(request.agent);
+         lasting = Boolean(resolved.lasting);
+-        const r = refused(resolved.refused, resolved.reason);
+-        // FeltKit refused before asking AuthBoundry (no per-agent delegation, an agent naming another, ...):
+-        // recorded like a decision, so the refusal and how it was evaluated are evidence too.
+-        await host.record?.({ capability: request.capability, executor, onBehalfOf, decision: { allowed: false, decisionId: null, outcome: r.outcome, reason: r.reason, onBehalfOf, delegationId: null, executorProof: r.executorProof }, durationMs: 0, authorityMode: resolved.mode });
+-        return r;
++        return refused(resolved.refused, resolved.reason);
+       }
+       const as = resolved.decider === "agent" ? resolved : null;
+       if (as) {
+         executor = as.principal;
+         agent = as.principal;
+       }
+-      if (typeof request.capability !== "string" || !request.capability) return refused("invalid", "A capability is required.");
+-      if (request.onBehalfOf !== undefined && asked === null) return refused("invalid", 'onBehalfOf must be a principal id ("ada"), an AuthBoundry principal ("user:ada"), { person } or { principal }.');
++      const invalid = (reason: string) => ((authorityMode = null), refused("invalid", reason)); // nothing was evaluated
++      if (typeof request.capability !== "string" || !request.capability) return invalid("A capability is required.");
++      if (request.onBehalfOf !== undefined && asked === null) return invalid('onBehalfOf must be a principal id ("ada"), an AuthBoundry principal ("user:ada"), { person } or { principal }.');
+       const url = external ?? (await host.localUrl?.()) ?? null;
+       // The executor's agent credential: the one configured, or the private authority's own.
+       const agentRef = as ? undefined : config.executor.credential ?? (!external && config.local ? LOCAL_AGENT_REF : undefined);
+       if (!url) {
+-        lasting = !config.local; // no address configured: a configuration state, not cleared by retrying
++        // Nothing was evaluated. No address configured, or a local authority that failed to start (it is not
++        // started again until the application restarts): configuration states, not cleared by retrying.
++        authorityMode = null;
++        lasting = !config.local || host.localState?.() === "failed";
+         return refused("unavailable", config.local ? "The local authority is not running (see readiness)." : `AuthBoundry's address is not configured (${typeof config.url === "string" ? "url" : config.url?.env ?? "url"}).`);
+       }
+       const started = Date.now();
+@@ -163,7 +172,8 @@ export function applicationAuthority(host: AuthorityHost): ApplicationAuthority
+               : ask(check.value),
+         );
+       } catch (error) {
+-        // A credential that is missing or unreadable is a refusal, named without its value.
++        // A credential that is missing or unreadable is a refusal, named without its value. Nothing was evaluated.
++        authorityMode = null;
+         return refused("unavailable", `The authority's credential is unavailable: ${(error as Error).message}`);
+       }
+       // Recorded before it is returned: the evidence (and the attempt it belongs to) has it first.
+diff --git a/packages/sdk/src/runtime/authority-contract.ts b/packages/sdk/src/runtime/authority-contract.ts
+index fb80f6d..9428df1 100644
+--- a/packages/sdk/src/runtime/authority-contract.ts
++++ b/packages/sdk/src/runtime/authority-contract.ts
+@@ -40,3 +40,40 @@ export type AuthorityMode =
+   | "hosted-executor-grants";
+ 
+ export const AUTHORITY_MODES: readonly AuthorityMode[] = ["local-executor", "local-per-agent", "local-executor-grants-opt-in", "hosted-executor", "hosted-executor-grants"];
++
++/**
++ * Start a throwaway private AuthBoundry with an installed @authboundry/local's `startLocalAuthority`, for probing what
++ * it offers (the release gate and FeltKit's own tests use this, then `missingPerAgentMethods` on the result, so they
++ * judge per-agent delegation exactly as the runtime does). The caller must `close()` it.
++ */
++export async function startProbeAuthority(startLocalAuthority: (options: Record<string, unknown>) => Promise<object & { close(): Promise<void>; check(capability: string, onBehalfOf?: string): Promise<{ status: number; body: any }> }>) {
++  const { mkdtempSync, rmSync } = await import("node:fs");
++  const { tmpdir } = await import("node:os");
++  const { join } = await import("node:path");
++  const { randomBytes } = await import("node:crypto");
++  const dataDir = mkdtempSync(join(tmpdir(), "feltkit-authority-probe-"));
++  try {
++    const authority = await startLocalAuthority({ dataDir, application: { id: "feltkit-authority-probe", capabilities: ["probe.capability"] }, executor: { id: "agent:feltkit-authority-probe" }, adminSecret: randomBytes(32).toString("base64url"), logger: { info() {}, warn() {} } });
++    return {
++      authority,
++      async close() {
++        await authority.close().catch(() => undefined);
++        rmSync(dataDir, { recursive: true, force: true });
++      },
++    };
++  } catch (error) {
++    rmSync(dataDir, { recursive: true, force: true });
++    throw error;
++  }
++}
++
++/** Per-agent delegation of the INSTALLED @authboundry/local (`load` imports it), judged on a started authority. */
++export async function installedPerAgentDelegation(load: () => Promise<{ startLocalAuthority: Parameters<typeof startProbeAuthority>[0] }>): Promise<{ present: boolean; missing: string[] }> {
++  const probe = await startProbeAuthority((await load()).startLocalAuthority);
++  try {
++    const missing = missingPerAgentMethods(probe.authority);
++    return { present: missing.length === 0, missing };
++  } finally {
++    await probe.close();
++  }
++}
+diff --git a/packages/sdk/src/runtime/context.ts b/packages/sdk/src/runtime/context.ts
+index 5fc72cc..3f4dae5 100644
+--- a/packages/sdk/src/runtime/context.ts
++++ b/packages/sdk/src/runtime/context.ts
+@@ -298,15 +298,18 @@ export interface ApplicationAuthorityDecision {
+   executorProof: import("./authboundry.js").ExecutorProof;
+   /**
+    * How the decision was evaluated (FK-16), recorded with it in every durable record of the decision.
+-   * Evidence only: never an input to authorization. null when nothing was evaluated (no authority
+-   * configured, an invalid request, an agent naming another).
++   * Evidence only: never an input to authorization. Always set by FeltKit (optional in the type so that
++   * existing implementations of this interface keep compiling); null when nothing was evaluated (no authority
++   * or address, a local authority that is not running, an invalid request, an unreadable credential, an agent
++   * naming another). A refusal under the per-agent contract (not installed, unregistered agent) is
++   * `local-per-agent`.
+    *   local-executor                 local authority; a person, service or anonymous caller, as the executor
+    *   local-per-agent                local authority; an agent as itself (refused `unavailable` when not installed)
+    *   local-executor-grants-opt-in   an agent caller as the executor: the owner's agentCallers: "executor-grants"
+    *   hosted-executor                hosted AuthBoundry; a non-agent caller as the executor
+    *   hosted-executor-grants         hosted AuthBoundry; an agent caller as the executor (documented hosted contract)
+    */
+-  authorityMode: import("./authority-contract.js").AuthorityMode | null;
++  authorityMode?: import("./authority-contract.js").AuthorityMode | null;
+   /** On a refusal: true when it is a configuration state that retrying does not change. */
+   lasting?: boolean;
+ }
+diff --git a/packages/sdk/src/runtime/local-authority.ts b/packages/sdk/src/runtime/local-authority.ts
+index b9586e5..00e140e 100644
+--- a/packages/sdk/src/runtime/local-authority.ts
++++ b/packages/sdk/src/runtime/local-authority.ts
+@@ -337,7 +337,8 @@ export class LocalAuthorityHost {
+     }
+     await this.ensure();
+     const authority = this.#authority;
+-    if (!authority) return { refused: "unavailable", reason: `The local authority is not running${this.#status.error ? `: ${this.#status.error}` : ""}.`, mode: "local-per-agent" };
++    // Nothing evaluated: the local authority is not running (a failed start lasts until the application restarts).
++    if (!authority) return { refused: "unavailable", reason: `The local authority is not running${this.#status.error ? `: ${this.#status.error}` : ""}.`, mode: null, lasting: this.#status.state === "failed" };
+     if (!perAgentDelegation(authority)) {
+       // FK-16 (0.3.32): the installed @authboundry/local cannot hold per-agent credentials. By default an agent
+       // caller is refused, as in 0.3.31: it may decide only as itself. Only when the application owner opted in
+diff --git a/packages/sdk/src/runtime/runtime.ts b/packages/sdk/src/runtime/runtime.ts
+index 3560f3d..8f5ea02 100644
+--- a/packages/sdk/src/runtime/runtime.ts
++++ b/packages/sdk/src/runtime/runtime.ts
+@@ -654,6 +654,7 @@ export class FeltKitRuntime {
+       appName: this.app.name,
+       env: this.#env,
+       localUrl: () => this.localAuthority.url(),
++      localState: () => this.localAuthority.status.state,
+       grants: this.localAuthority.grantsFor(principal, requestId),
+       agents: this.localAuthority.agentsFor(principal, requestId),
+       agentFor: (requested) => this.localAuthority.agentDecision(principal, requested),
+diff --git a/packages/sdk/test/authority-compat.test.ts b/packages/sdk/test/authority-compat.test.ts
+index 8403383..4392e35 100644
+--- a/packages/sdk/test/authority-compat.test.ts
++++ b/packages/sdk/test/authority-compat.test.ts
+@@ -263,10 +263,14 @@ test("FK-16 failed start: readiness fails and every decision is refused, never '
+     assert.equal(runtime.localAuthority.status.state, "failed");
+     const check = await agentCallersCheck(runtime);
+     assert.deepEqual([check.status, check.title], ["fail", "Agent callers are refused (local authority failed)"]);
++    // Nothing is evaluated (authorityMode null), and a failed start lasts until a restart: never "try again".
+     const a = await run(runtime, mcpBot, "work:decide");
+-    assert.deepEqual([a.allowed, a.outcome, a.authorityMode], [false, "unavailable", "local-per-agent"], a.reason);
++    assert.deepEqual([a.allowed, a.outcome, a.authorityMode, a.lasting], [false, "unavailable", null, true], a.reason);
+     const p = await run(runtime, ada, "work:decide");
+-    assert.deepEqual([p.allowed, p.outcome], [false, "unavailable"], p.reason);
++    assert.deepEqual([p.allowed, p.outcome, p.authorityMode, p.lasting], [false, "unavailable", null, true], p.reason);
++    // Every refusal is recorded, a person's included.
++    const evidence = await decisionsIn(runtime);
++    assert.deepEqual(evidence.map((d: any) => [d.caller, d.outcome, d.authorityMode]).sort(), [["ada", "unavailable", null], ["mcp-bot", "unavailable", null]]);
+   } finally {
+     await runtime.close();
+     for (const k of FK16_ENV) delete process.env[k];
+@@ -281,6 +285,24 @@ test("FK-16 configuration: only an authority.local object is validated; 0.3.31's
+   for (const local of [undefined, true, false, null, 0, "", {}, { dataDir: "/tmp/x" }, { agentCallers: "per-agent" }, { agentCallers: "executor-grants" }]) {
+     assert.doesNotThrow(() => feltkit({ ...base, authority: { ...base.authority, local } } as never), JSON.stringify(local));
+   }
++  // An authority url variable that is set but empty is no address: the local authority decides, and readiness and
++  // decisions agree on it.
++  {
++    const runtime = await start(MODES, { FK16_HOSTED: "1", FK16_AB_URL: "" });
++    try {
++      await runtime.localAuthority.ensure();
++      assert.equal(runtime.localAuthority.status.state, "running");
++      const check = await agentCallersCheck(runtime);
++      assert.notEqual(check.title, "Agent callers use the executor's grants (hosted authority)");
++      const p = await run(runtime, ada, "work:decide");
++      assert.deepEqual([p.outcome, p.authorityMode], ["deny", "local-executor"], p.reason);
++      const bad = await run(runtime, ada, "work:decide", { onBehalfOf: " " });
++      assert.deepEqual([bad.outcome, bad.authorityMode], ["invalid", null], "an invalid request evaluates nothing");
++    } finally {
++      await runtime.close();
++      for (const k of FK16_ENV) delete process.env[k];
++    }
++  }
+   // A disabled local authority with no AuthBoundry address: off, as in 0.3.31; readiness says nothing can be decided.
+   for (const local of ["false", "null", "0", '""']) {
+     const runtime = await start(MODES, { FK16_LOCAL: local });
+@@ -289,7 +311,7 @@ test("FK-16 configuration: only an authority.local object is validated; 0.3.31's
+       const check = await agentCallersCheck(runtime);
+       assert.deepEqual([check.status, check.title], ["fail", "Agent callers are refused (no authority address)"], local);
+       const d = await run(runtime, mcpBot, "work:decide");
+-      assert.deepEqual([d.allowed, d.outcome, d.lasting], [false, "unavailable", true], `${local}: ${d.reason}`);
++      assert.deepEqual([d.allowed, d.outcome, d.lasting, d.authorityMode], [false, "unavailable", true, null], `${local}: ${d.reason}`);
+     } finally {
+       await runtime.close();
+       for (const k of FK16_ENV) delete process.env[k];
+diff --git a/packages/sdk/test/local-authority.test.ts b/packages/sdk/test/local-authority.test.ts
+index aae0c5a..324bab6 100644
+--- a/packages/sdk/test/local-authority.test.ts
++++ b/packages/sdk/test/local-authority.test.ts
+@@ -3,6 +3,7 @@
+  * keeps its secrets in custody, decides through it, and lets each person grant only their own authority.
+  * Runs against the real AuthBoundry server; skipped when @authboundry/local is not installed.
+  */
++import { installedPerAgentDelegation } from "../src/runtime/authority-contract.js";
+ import { test } from "node:test";
+ import assert from "node:assert/strict";
+ import { createRequire } from "node:module";
+@@ -97,8 +98,8 @@ test("authority.local in the test environment: started on first use, not with th
+   }
+ });
+ 
+-/** Per-agent delegation needs @authboundry/local with registerAgent (authboundry 001ce42, after 0.1.0). */
+-const perAgent = installed && (() => { try { return readFileSync(fileURLToPath(import.meta.resolve("@authboundry/local")), "utf8").includes("registerAgent"); } catch { return false; } })();
++/** Per-agent delegation (authboundry 001ce42, after 0.1.0), judged on a started authority by the runtime's own contract. */
++const perAgent = installed && (await installedPerAgentDelegation(() => import("@authboundry/local" as string) as never).catch(() => ({ present: false }))).present;
+ const SKIP_AGENTS = SKIP || (perAgent ? false : "the installed @authboundry/local has no per-agent delegation (registerAgent): needs the release after 0.1.0 (authboundry 001ce42)");
+ const scout = { id: "scout", type: "agent" as const, roles: ["bot"] };
+ const concierge = { id: "concierge", type: "agent" as const, roles: ["bot"] };
+diff --git a/packages/sdk/test/policies.test.ts b/packages/sdk/test/policies.test.ts
+index 3495851..bf9cf73 100644
+--- a/packages/sdk/test/policies.test.ts
++++ b/packages/sdk/test/policies.test.ts
+@@ -4,6 +4,7 @@
+  * operations under the same layers (D3), and agent delegation decided by a real AuthBoundry
+  * (authority.local; that test is skipped when @authboundry/local is not installed).
+  */
++import { installedPerAgentDelegation } from "../src/runtime/authority-contract.js";
+ import { test } from "node:test";
+ import assert from "node:assert/strict";
+ import { createServer } from "node:http";
+@@ -23,7 +24,7 @@ const FIXTURE = fileURLToPath(new URL("./fixtures/policies", import.meta.url));
+ const require = createRequire(import.meta.url);
+ const AUTHORITY = (() => { try { require.resolve("@authboundry/local/package.json"); return true; } catch { return false; } })();
+ /** Per-agent delegation needs @authboundry/local with registerAgent (authboundry 001ce42, after 0.1.0): an agent decides as itself. */
+-const PER_AGENT = AUTHORITY && (() => { try { return readFileSync(fileURLToPath(import.meta.resolve("@authboundry/local")), "utf8").includes("registerAgent"); } catch { return false; } })();
++const PER_AGENT = AUTHORITY && (await installedPerAgentDelegation(() => import("@authboundry/local" as string) as never).catch(() => ({ present: false }))).present;
+ const probe = ((globalThis as any).__policyProbe ??= { calls: [] }) as { calls: Array<{ function: string; kind: string; policy?: { matched: readonly string[]; version: string } }> };
+ 
+ const ada = { id: "ada", type: "user" as const, roles: ["member"] };
+diff --git a/scripts/release-prerequisites.mjs b/scripts/release-prerequisites.mjs
+index 017e708..dda6819 100644
+--- a/scripts/release-prerequisites.mjs
++++ b/scripts/release-prerequisites.mjs
+@@ -8,7 +8,11 @@
+ //   - a private AuthBoundry is started from the installed @authboundry/local, with the installed
+ //     @authboundry/core server, and asked for a decision;
+ //   - per-agent delegation is judged on that started authority by the same contract the runtime and the
+-//     tests use (packages/sdk/dist/runtime/authority-contract.js, imported from the BUILT package).
++//     tests use (runtime/authority-contract: startProbeAuthority + missingPerAgentMethods), imported from the
++//     PACKED artifact.
++// The artifact: @feltdb/feltkit is packed from this tree (npm pack, with its prepack build) and inspected: its
++// version, its content, the commit it comes from, and that only release manifests differ from that commit. Its
++// sha512 is reported, so the published package can be compared with exactly what this gate checked.
+ // required  absent → supported behaviour breaks → the release fails.
+ // optional  absent → a documented, safe outcome (a clear refusal) → reported, never silent.
+ //
+@@ -19,7 +23,7 @@
+ // 404) and an unreachable registry are different findings; both fail.
+ // Exit 1 on any problem. Used by scripts/release-check.mjs.
+ import { execFileSync } from "node:child_process";
+-import { createHash, randomBytes } from "node:crypto";
++import { createHash } from "node:crypto";
+ import { existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+ import { tmpdir } from "node:os";
+ import { join, relative, sep } from "node:path";
+@@ -56,31 +60,58 @@ const entryOf = (name) => {
+ };
+ 
+ // ---------------------------------------------------------------------------------------------------------
+-// Capabilities, by use.
++// The artifact: @feltdb/feltkit packed now, from this tree (npm pack runs its prepack build), and inspected.
++// Its contract module is what the probes below use, so the gate judges with exactly what would ship.
+ // ---------------------------------------------------------------------------------------------------------
+-const contractUrl = new URL("../packages/sdk/dist/runtime/authority-contract.js", import.meta.url);
++/** The files the release process may change before packing (scripts/publish-packages.mjs bumps versions in them). */
++const RELEASE_MANIFESTS = ["packages/sdk/package.json", "packages/create/package.json", "examples/tasks/package.json", "examples/invoices/package.json", "examples/managed/package.json", "packages/sdk/skills/.claude-plugin/plugin.json", "packages/sdk/skills/.claude-plugin/marketplace.json", "package-lock.json"];
++const git = (args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
++const artifactDir = mkdtempSync(join(tmpdir(), "feltkit-prereq-artifact-"));
++const artifact = { commit: null, dirty: [], version: null, committedVersion: null, file: null, integrity: null, sha256: null, contract: false, localAuthority: false, readiness: false, securityDoc: false };
+ let contract = null;
+ try {
+-  contract = await import(contractUrl.href);
+-} catch {
+-  problems.push("packages/sdk/dist/runtime/authority-contract.js is missing: build the SDK (npm run build) before the release check");
++  artifact.commit = git(["rev-parse", "HEAD"]).trim();
++  artifact.dirty = git(["status", "--porcelain", "--untracked-files=all"]).split("\n").filter(Boolean).map((l) => l.slice(3)).sort();
++  artifact.committedVersion = JSON.parse(git(["show", "HEAD:packages/sdk/package.json"])).version;
++  const out = execFileSync("npm", ["pack", "-w", "@feltdb/feltkit", "--json", "--pack-destination", artifactDir], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 900_000, maxBuffer: 64 * 1024 * 1024 });
++  const packed = JSON.parse(out.slice(out.search(/^\[/m)))[0];
++  artifact.file = packed.filename;
++  const tgz = join(artifactDir, packed.filename);
++  const bytes = readFileSync(tgz);
++  artifact.integrity = `sha512-${createHash("sha512").update(bytes).digest("base64")}`;
++  artifact.sha256 = createHash("sha256").update(bytes).digest("hex");
++  const x = join(artifactDir, "x");
++  execFileSync("mkdir", ["-p", x]);
++  execFileSync("tar", ["xzf", tgz, "-C", x]);
++  const pkgDir = join(x, readdirSync(x)[0]);
++  const text = (p) => (existsSync(join(pkgDir, p)) ? readFileSync(join(pkgDir, p), "utf8") : "");
++  artifact.version = JSON.parse(text("package.json")).version;
++  contract = await import(pathToFileURL(join(pkgDir, "dist/runtime/authority-contract.js")).href).catch(() => null);
++  artifact.contract = Boolean(contract?.missingPerAgentMethods && contract?.startProbeAuthority && contract?.AUTHORITY_MODES?.includes("hosted-executor-grants"));
++  artifact.localAuthority = text("dist/runtime/local-authority.js").includes("local-executor-grants-opt-in");
++  artifact.readiness = text("dist/runtime/readiness.js").includes("Agent callers: not yet known");
++  artifact.securityDoc = text("docs/SECURITY.md").includes("hosted-executor-grants");
++} catch (error) {
++  problems.push(`the @feltdb/feltkit artifact could not be packed and inspected: ${String(error?.message ?? error).split("\n")[0]}`);
+ }
++const unreleased = artifact.dirty.filter((f) => !RELEASE_MANIFESTS.includes(f));
++if (unreleased.length) problems.push(`the artifact would include uncommitted changes (not release manifests): ${unreleased.slice(0, 8).join(", ")}${unreleased.length > 8 ? ` (+${unreleased.length - 8})` : ""}`);
++const sdkVersion = JSON.parse(readFileSync(join(sdkDir, "package.json"), "utf8")).version;
++if (artifact.version && artifact.version !== sdkVersion) problems.push(`the packed artifact is ${artifact.version}, packages/sdk/package.json is ${sdkVersion}`);
++for (const k of ["contract", "localAuthority", "readiness", "securityDoc"]) if (artifact.file && !artifact[k]) problems.push(`the packed artifact lacks the FK-16 correction (${k})`);
+ 
++// ---------------------------------------------------------------------------------------------------------
++// Capabilities, by use, judged with the artifact's own contract.
++// ---------------------------------------------------------------------------------------------------------
+ /** One started private AuthBoundry, shared by the AuthBoundry probes, closed at the end. */
+ let started = null;
+ const startAuthority = async () => {
+   if (started) return started;
+   if (process.env.AUTHBOUNDRY_CLI_PATH) throw new Error(`AUTHBOUNDRY_CLI_PATH is set (${process.env.AUTHBOUNDRY_CLI_PATH}): the server under test would not be @authboundry/core's`);
++  if (!contract) throw new Error("the packed artifact has no authority contract");
+   const { startLocalAuthority } = await import(entryOf("@authboundry/local"));
+-  const dataDir = mkdtempSync(join(tmpdir(), "feltkit-prereq-authority-"));
+-  try {
+-    const authority = await startLocalAuthority({ dataDir, application: { id: "feltkit-release-probe", capabilities: ["probe.capability"] }, executor: { id: "agent:feltkit-release-probe" }, adminSecret: randomBytes(32).toString("base64url"), logger: { info() {}, warn() {} } });
+-    started = { authority, dataDir };
+-    return started;
+-  } catch (error) {
+-    rmSync(dataDir, { recursive: true, force: true });
+-    throw error;
+-  }
++  started = await contract.startProbeAuthority(startLocalAuthority);
++  return started;
+ };
+ 
+ const PREREQUISITES = [
+@@ -170,10 +201,7 @@ for (const p of PREREQUISITES) {
+   report.prerequisites.push({ id: p.id, package: p.package, kind: p.kind, present: result.present, detail: result.detail, feature: p.feature, whenAbsent: p.whenAbsent, ...(p.upstream ? { upstream: p.upstream } : {}) });
+   if (!result.present && p.kind === "required") problems.push(`REQUIRED prerequisite absent: ${p.package}: ${p.feature} (${result.detail})`);
+ }
+-if (started) {
+-  await started.authority.close().catch(() => undefined);
+-  rmSync(started.dataDir, { recursive: true, force: true });
+-}
++if (started) await started.close();
+ 
+ // ---------------------------------------------------------------------------------------------------------
+ // Registry identity of every installed upstream copy.
+@@ -206,7 +234,8 @@ const upstreamCopies = () => {
+   const copies = new Map();
+   const visit = (node) => {
+     for (const [name, dep] of Object.entries(node.dependencies ?? {})) {
+-      if (dep.path && UPSTREAM.test(name) && dep.version && !String(dep.resolved ?? "").startsWith("file:") && !dep.link) copies.set(dep.path, { name, version: dep.version, path: dep.path });
++      // A linked or file: copy is not a registry copy: kept, and reported as such (never skipped).
++      if (dep.path && UPSTREAM.test(name)) copies.set(dep.path, { name, version: dep.version ?? null, path: dep.path, local: dep.link || String(dep.resolved ?? "").startsWith("file:") || !dep.resolved ? String(dep.resolved ?? (dep.link ? "link" : "no registry source")) : null });
+       visit(dep);
+     }
+   };
+@@ -246,6 +275,8 @@ const registryMetadata = (name, version) => {
+   return metadata.get(key);
+ };
+ const verifyCopy = (copy) => {
++  if (copy.local) return { status: "not-registry", detail: `installed from ${copy.local}` };
++  if (!copy.version) return { status: "not-registry", detail: "no version" };
+   const meta = registryMetadata(copy.name, copy.version);
+   if (meta.error) return { status: meta.error, detail: meta.detail };
+   const tmp = mkdtempSync(join(tmpdir(), "feltkit-prereq-"));
+@@ -273,7 +304,10 @@ const verifyCopy = (copy) => {
+     rmSync(tmp, { recursive: true, force: true });
+   }
+ };
++/** A scope-specific registry would be queried instead of the one reported: refused, so the report names the registry used. */
++const scoped = ["@authboundry", "@appport", "@feltdb"].map((scope) => [scope, execFileSync("npm", ["config", "get", `${scope}:registry`], { cwd: root, encoding: "utf8" }).trim()]).filter(([, v]) => v && v !== "undefined" && v !== registryUrl);
+ if (checkRegistry) {
++  for (const [scope, value] of scoped) problems.push(`npm has a scope registry ${scope}:registry=${value}, different from ${registryUrl}: verification would not name the registry actually queried`);
+   if (offline) problems.push("npm is configured offline: registry identity cannot be verified from the cache alone");
+   else {
+     const copies = upstreamCopies();
+@@ -287,25 +321,14 @@ if (checkRegistry) {
+     report.registry = { registry: registryUrl, copies: verified };
+     for (const c of report.registry.copies) {
+       if (c.status === "match") continue;
+-      const why = { "not-published": "is not published (registry-confirmed)", unreachable: "could not be verified: registry unreachable", "tarball-mismatch": "tarball does not match the registry's integrity", "files-differ": "installed files differ from the registry's" }[c.status];
++      const why = { "not-registry": "is not a registry copy (linked or local)", "not-published": "is not published (registry-confirmed)", unreachable: "could not be verified: registry unreachable", "tarball-mismatch": "tarball does not match the registry's integrity", "files-differ": "installed files differ from the registry's" }[c.status];
+       problems.push(`${c.name}@${c.version} at ${c.path} ${why}: ${c.detail}`);
+     }
+   }
+ }
+ 
+-// ---------------------------------------------------------------------------------------------------------
+-// The built artifact (what npm pack ships from packages/sdk/dist) carries the FK-16 correction.
+-// ---------------------------------------------------------------------------------------------------------
+-const built = (p) => {
+-  const u = new URL(`../packages/sdk/dist/runtime/${p}`, import.meta.url);
+-  return existsSync(u) ? readFileSync(u, "utf8") : "";
+-};
+-report.artifact = {
+-  contract: Boolean(contract?.missingPerAgentMethods && contract?.AUTHORITY_MODES?.includes("hosted-executor-grants")),
+-  localAuthority: built("local-authority.js").includes("local-executor-grants-opt-in"),
+-  readiness: built("readiness.js").includes("Agent callers: not yet known"),
+-};
+-for (const [k, ok] of Object.entries(report.artifact)) if (!ok) problems.push(`the built packages/sdk/dist lacks the FK-16 correction (${k})`);
++report.artifact = artifact;
++rmSync(artifactDir, { recursive: true, force: true });
+ 
+ // ---------------------------------------------------------------------------------------------------------
+ // The compatibility tests: they must run, all of them, and none may skip.
+-- 
+2.43.0
+
