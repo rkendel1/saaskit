@@ -1,0 +1,312 @@
+TAP version 13
+# Subtest: declarations are validated with the application
+ok 1 - declarations are validated with the application
+  ---
+  duration_ms: 2.555031
+  type: 'test'
+  ...
+# Subtest: build bundles the component; start serves it on the app's port, as its principal, and its health is the app's
+ok 2 - build bundles the component; start serves it on the app's port, as its principal, and its health is the app's
+  ---
+  duration_ms: 457.958571
+  type: 'test'
+  ...
+# Subtest: an optional component's problem does not make the application unready
+ok 3 - an optional component's problem does not make the application unready
+  ---
+  duration_ms: 158.74743
+  type: 'test'
+  ...
+# Subtest: deploy packages the component, verifies it is loaded and routed, and refuses one that is not
+ok 4 - deploy packages the component, verifies it is loaded and routed, and refuses one that is not
+  ---
+  duration_ms: 259.318238
+  type: 'test'
+  ...
+# Subtest: development: components run from source; their routes answer any Host (provider tunnels), FeltKit's stay loopback-only
+ok 5 - development: components run from source; their routes answer any Host (provider tunnels), FeltKit's stay loopback-only
+  ---
+  duration_ms: 181.887162
+  type: 'test'
+  ...
+# Subtest: build --target appboundry emits components@1: the bundle beside the module, digest-bound, as the shared contract fixture says
+ok 6 - build --target appboundry emits components@1: the bundle beside the module, digest-bound, as the shared contract fixture says
+  ---
+  duration_ms: 357.158752
+  type: 'test'
+  ...
+# Subtest: Studio and the CLI store API keys through credential.store; Test uses them; no key appears anywhere else
+ok 7 - Studio and the CLI store API keys through credential.store; Test uses them; no key appears anywhere else
+  ---
+  duration_ms: 7157.833209
+  type: 'test'
+  ...
+# Subtest: production: storing a key without the vault opt-in refuses with CUSTODY_READ_ONLY, from Studio and the CLI
+ok 8 - production: storing a key without the vault opt-in refuses with CUSTODY_READ_ONLY, from Studio and the CLI
+  ---
+  duration_ms: 1044.979515
+  type: 'test'
+  ...
+# Subtest: deploy writes .feltkit/deploy, keeps a previous run's state, and an app with API keys starts on local state with no extra variable
+ok 9 - deploy writes .feltkit/deploy, keeps a previous run's state, and an app with API keys starts on local state with no extra variable
+  ---
+  duration_ms: 916.695609
+  type: 'test'
+  ...
+# Subtest: --target hosted writes the app's complete contract, AppPort Services' collections included
+ok 10 - --target hosted writes the app's complete contract, AppPort Services' collections included
+  ---
+  duration_ms: 169.728324
+  type: 'test'
+  ...
+# Subtest: --target self-hosted: a separate app container on your FeltDB server, no contract file, no application id
+ok 11 - --target self-hosted: a separate app container on your FeltDB server, no contract file, no application id
+  ---
+  duration_ms: 343.425238
+  type: 'test'
+  ...
+# Subtest: each target's artifact refuses, at startup, anything that would store state elsewhere
+ok 12 - each target's artifact refuses, at startup, anything that would store state elsewhere
+  ---
+  duration_ms: 5.925545
+  type: 'test'
+  ...
+# Subtest: a hosted build without FELTDB_URL refuses to start however it is started
+ok 13 - a hosted build without FELTDB_URL refuses to start however it is started
+  ---
+  duration_ms: 166.938058
+  type: 'test'
+  ...
+# Subtest: --target vercel: Dockerfile.vercel for Vercel's container runtime, data in Managed FeltDB, the project link kept across deploys
+ok 14 - --target vercel: Dockerfile.vercel for Vercel's container runtime, data in Managed FeltDB, the project link kept across deploys
+  ---
+  duration_ms: 286.747968
+  type: 'test'
+  ...
+# Subtest: --target vercel --data self-hosted: your FeltDB server; --data applies to vercel, cloudflare and fly only
+ok 15 - --target vercel --data self-hosted: your FeltDB server; --data applies to vercel, cloudflare and fly only
+  ---
+  duration_ms: 168.136492
+  type: 'test'
+  ...
+# Subtest: hot reload swaps functions without reopening state
+ok 16 - hot reload swaps functions without reopening state
+  ---
+  duration_ms: 802.101623
+  type: 'test'
+  ...
+# Subtest: build produces a bundle that serves in production with production rules
+ok 17 - build produces a bundle that serves in production with production rules
+  ---
+  duration_ms: 376.540608
+  type: 'test'
+  ...
+# Subtest: the artifact: data on a Fly volume by default, one machine always running; in FeltDB, machines that stop when idle
+ok 18 - the artifact: data on a Fly volume by default, one machine always running; in FeltDB, machines that stop when idle
+  ---
+  duration_ms: 583.938496
+  type: 'test'
+  ...
+# ==> Building image with Depot
+# Visit your newly deployed app at https://fixture.fly.dev/
+# ==> Building image with Depot
+# Visit your newly deployed app at …/
+# Subtest: feltkit fly deploy (volume): creates the app and volume once, stages only Studio's settings, one machine, Studio link
+ok 19 - feltkit fly deploy (volume): creates the app and volume once, stages only Studio's settings, one machine, Studio link
+  ---
+  duration_ms: 717.979114
+  type: 'test'
+  ...
+# ==> Building image with Depot
+# Visit your newly deployed app at https://fixture.fly.dev/
+# Subtest: feltkit fly deploy (managed): the FeltDB settings are staged, many machines, and you are signed in
+ok 20 - feltkit fly deploy (managed): the FeltDB settings are staged, many machines, and you are signed in
+  ---
+  duration_ms: 420.428243
+  type: 'test'
+  ...
+# Setting 2 Fly secrets on fixture for the artifact in test/.tmp/project-6cRB3B/.feltkit/deploy:
+#   Generated FELTKIT_OPERATOR_KEY and saved it to test/.tmp/project-6cRB3B/.env.local: keep it; running this again reuses it.
+# Subtest: not signed in to Fly, outside a terminal: refused before anything is created or uploaded
+ok 21 - not signed in to Fly, outside a terminal: refused before anything is created or uploaded
+  ---
+  duration_ms: 289.485957
+  type: 'test'
+  ...
+# Subtest: propose → inspect → verify → approve → apply: an agent with a deploy profile changes the application once a person approved, and the receipt is the proof
+ok 22 - propose → inspect → verify → approve → apply: an agent with a deploy profile changes the application once a person approved, and the receipt is the proof
+  ---
+  duration_ms: 6249.269711
+  type: 'test'
+  ...
+# Subtest: a failed verification is recorded; once what blocked it is gone, verifying again passes
+ok 23 - a failed verification is recorded; once what blocked it is gone, verifying again passes
+  ---
+  duration_ms: 11742.099129
+  type: 'test'
+  ...
+# Subtest: content changed after verification, or not what the caller reviewed, is refused
+ok 24 - content changed after verification, or not what the caller reviewed, is refused
+  ---
+  duration_ms: 3616.749489
+  type: 'test'
+  ...
+# Subtest: a project that moved past the base revision refuses verification and apply
+ok 25 - a project that moved past the base revision refuses verification and apply
+  ---
+  duration_ms: 3769.381451
+  type: 'test'
+  ...
+# Subtest: authority is checked on every operation: profiles, the deploy scope, and revocation
+ok 26 - authority is checked on every operation: profiles, the deploy scope, and revocation
+  ---
+  duration_ms: 4111.238568
+  type: 'test'
+  ...
+# Subtest: a change set cannot be pointed at another application or environment
+ok 27 - a change set cannot be pointed at another application or environment
+  ---
+  duration_ms: 3963.476419
+  type: 'test'
+  ...
+# Subtest: retries are safe: a repeated proposal, a repeated apply, and two verifications at once
+ok 28 - retries are safe: a repeated proposal, a repeated apply, and two verifications at once
+  ---
+  duration_ms: 5623.566614
+  type: 'test'
+  ...
+# Subtest: a deploy that fails its health check writes no receipt and restores the source
+ok 29 - a deploy that fails its health check writes no receipt and restores the source
+  ---
+  duration_ms: 6021.491221
+  type: 'test'
+  ...
+# Subtest: interrupted transitions are recovered at the next start; state and history persist across restarts
+ok 30 - interrupted transitions are recovered at the next start; state and history persist across restarts
+  ---
+  duration_ms: 5765.321336
+  type: 'test'
+  ...
+# Subtest: evidence: every change operation, allowed or refused, is in the activity log with its decision id
+ok 31 - evidence: every change operation, allowed or refused, is in the activity log with its decision id
+  ---
+  duration_ms: 1.18265
+  type: 'test'
+  ...
+# Subtest: initial deployment: the running process is verified live, and the receipt distinguishes artifact from live verification
+ok 32 - initial deployment: the running process is verified live, and the receipt distinguishes artifact from live verification
+  ---
+  duration_ms: 3074.698827
+  type: 'test'
+  ...
+# Subtest: production data persists across process restarts and redeployments; a change applies to the running deployment
+ok 33 - production data persists across process restarts and redeployments; a change applies to the running deployment
+  ---
+  duration_ms: 13028.888904
+  type: 'test'
+  ...
+# Subtest: a migration is applied by the existing mechanism against production data, and recorded
+ok 34 - a migration is applied by the existing mechanism against production data, and recorded
+  ---
+  duration_ms: 9132.542279
+  type: 'test'
+  ...
+# Subtest: a candidate that cannot start leaves the previous deployment running, with its data
+ok 35 - a candidate that cannot start leaves the previous deployment running, with its data
+  ---
+  duration_ms: 10178.528247
+  type: 'test'
+  ...
+# Subtest: a candidate that never becomes ready is stopped at the readiness timeout and rolled back
+ok 36 - a candidate that never becomes ready is stopped at the readiness timeout and rolled back
+  ---
+  duration_ms: 21102.759689
+  type: 'test'
+  ...
+# Subtest: a process serving the wrong artifact is refused; a migration it applied is undone from the pre-deployment backup
+ok 37 - a process serving the wrong artifact is refused; a migration it applied is undone from the pre-deployment backup
+  ---
+  duration_ms: 11248.610678
+  type: 'test'
+  ...
+# Subtest: a migration production data cannot take fails the candidate; production state is unchanged
+ok 38 - a migration production data cannot take fails the candidate; production state is unchanged
+  ---
+  duration_ms: 9670.379969
+  type: 'test'
+  ...
+# Subtest: when the previous deployment cannot be restored either, production is degraded, with evidence and no receipt
+ok 39 - when the previous deployment cannot be restored either, production is degraded, with evidence and no receipt
+  ---
+  duration_ms: 10178.808301
+  type: 'test'
+  ...
+# Subtest: an interrupted deployment is rolled back when the platform starts again; the change set too
+ok 40 - an interrupted deployment is rolled back when the platform starts again; the change set too
+  ---
+  duration_ms: 8972.086043
+  type: 'test'
+  ...
+# Subtest: retries and races: a repeated apply deploys once; two deployments at once, one wins
+ok 41 - retries and races: a repeated apply deploys once; two deployments at once, one wins
+  ---
+  duration_ms: 9195.229064
+  type: 'test'
+  ...
+# Subtest: authority: runtime inspection is separate from deployment authority; revocation applies at the next call
+ok 42 - authority: runtime inspection is separate from deployment authority; revocation applies at the next call
+  ---
+  duration_ms: 3061.277872
+  type: 'test'
+  ...
+# Subtest: change.verify, change.apply and deploy.apply complete with 1,001 records in development and production
+ok 43 - change.verify, change.apply and deploy.apply complete with 1,001 records in development and production
+  ---
+  duration_ms: 14653.390248
+  type: 'test'
+  ...
+# Subtest: S1: the services run on the shared instance, by their own public identity check
+ok 44 - S1: the services run on the shared instance, by their own public identity check
+  ---
+  duration_ms: 286.172568
+  type: 'test'
+  ...
+# Subtest: S2: effect evidence by run id: completed, failed, and started (outcome unknown)
+ok 45 - S2: effect evidence by run id: completed, failed, and started (outcome unknown)
+  ---
+  duration_ms: 217.567675
+  type: 'test'
+  ...
+# Subtest: S3/S5: status is AppPort Services' health(), with its version; readiness reports it
+ok 46 - S3/S5: status is AppPort Services' health(), with its version; readiness reports it
+  ---
+  duration_ms: 202.714211
+  type: 'test'
+  ...
+# Subtest: S4: the agent reads a delivery under webhooks.deliveries.read, as the task owner
+ok 47 - S4: the agent reads a delivery under webhooks.deliveries.read, as the task owner
+  ---
+  duration_ms: 251.674129
+  type: 'test'
+  ...
+# Subtest: S6: development configuration reaches production through export/import; no secret value travels
+ok 48 - S6: development configuration reaches production through export/import; no secret value travels
+  ---
+  duration_ms: 529.483918
+  type: 'test'
+  ...
+# Subtest: FeltKit reserves every collection AppPort Services owns on the shared instance
+ok 49 - FeltKit reserves every collection AppPort Services owns on the shared instance
+  ---
+  duration_ms: 1.004561
+  type: 'test'
+  ...
+1..49
+# tests 49
+# suites 0
+# pass 49
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 198780.320575

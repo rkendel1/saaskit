@@ -1,0 +1,27 @@
+not ok 2 - build bundles the component; start serves it on the app's port, as its principal, and its health is the app's
+not ok 3 - an optional component's problem does not make the application unready
+not ok 8 - production: storing a key without the vault opt-in refuses with CUSTODY_READ_ONLY, from Studio and the CLI
+not ok 9 - deploy writes .feltkit/deploy, keeps a previous run's state, and an app with API keys starts on local state with no extra variable
+not ok 13 - a hosted build without FELTDB_URL refuses to start however it is started
+not ok 17 - build produces a bundle that serves in production with production rules
+not ok 19 - feltkit fly deploy (volume): creates the app and volume once, stages only Studio's settings, one machine, Studio link
+not ok 22 - propose → inspect → verify → approve → apply: an agent with a deploy profile changes the application once a person approved, and the receipt is the proof
+not ok 28 - retries are safe: a repeated proposal, a repeated apply, and two verifications at once
+not ok 30 - interrupted transitions are recovered at the next start; state and history persist across restarts
+not ok 31 - evidence: every change operation, allowed or refused, is in the activity log with its decision id
+not ok 32 - initial deployment: the running process is verified live, and the receipt distinguishes artifact from live verification
+not ok 33 - production data persists across process restarts and redeployments; a change applies to the running deployment
+not ok 34 - a migration is applied by the existing mechanism against production data, and recorded
+not ok 35 - a candidate that cannot start leaves the previous deployment running, with its data
+not ok 36 - a candidate that never becomes ready is stopped at the readiness timeout and rolled back
+not ok 37 - a process serving the wrong artifact is refused; a migration it applied is undone from the pre-deployment backup
+not ok 38 - a migration production data cannot take fails the candidate; production state is unchanged
+not ok 39 - when the previous deployment cannot be restored either, production is degraded, with evidence and no receipt
+not ok 40 - an interrupted deployment is rolled back when the platform starts again; the change set too
+not ok 41 - retries and races: a repeated apply deploys once; two deployments at once, one wins
+not ok 42 - authority: runtime inspection is separate from deployment authority; revocation applies at the next call
+not ok 43 - change.verify, change.apply and deploy.apply complete with 1,001 records in development and production
+not ok 48 - S6: development configuration reaches production through export/import; no secret value travels
+# tests 49
+# pass 25
+# fail 24

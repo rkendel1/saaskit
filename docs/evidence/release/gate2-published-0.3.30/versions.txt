@@ -1,0 +1,44 @@
+label: gate2-published-0.3.30
+feltkit spec: 0.3.30
+opt-in (agentCallers: executor-grants): no
+date: 2026-11-17T00:13:11Z
+registry: https://registry.npmjs.org/
++-- @authboundry/local@0.1.0
++-- @feltdb/feltkit@0.3.30
++-- @feltdb/webllm@0.21.0
+--- transitive
+@appport/authorization@1.1.1
+@appport/authorization@1.2.0
+@appport/client@1.1.8
+@appport/core@1.7.1
+@appport/core@1.8.0
+@appport/integration@1.2.5
+@appport/mcp@1.3.8
+@appport/mobile@1.0.12
+@appport/protocol@1.5.0
+@appport/resolver-client@0.3.0
+@appport/resolver-core@0.2.0
+@appport/schema@1.1.6
+@appport/sdk@1.8.1
+@appport/server@1.3.2
+@appport/services@0.18.0
+@appport/transport-electron@1.0.15
+@appport/transport-http@1.1.8
+@appport/transport-inprocess@1.0.15
+@appport/transport-tauri@1.0.12
+@appport/transport-websocket@1.0.12
+@authboundry/core@1.19.0
+@authboundry/local@0.1.0
+@feltdb/core@0.21.0
+@feltdb/feltkit@0.3.30
+@feltdb/webllm@0.21.0
+create-feltkit@0.3.30
+--- @feltdb/feltkit in package-lock.json
+version 0.3.30
+resolved https://registry.npmjs.org/@feltdb/feltkit/-/feltkit-0.3.30.tgz
+integrity sha512-r5pG1OOztKK69JEqwENEb01OrSzkPHG+zU4X31h7fSe4MXiH2SJMPQ81eO0HiP/9a5h6DMHSIua2d3s1UwxDxw==
+--- @feltdb/feltkit installed dist/runtime/local-authority.js sha256
+4cf6e81ed06a4f6c31684c23a8675c56f823f1646d387b7948de11163e0dcd98
+--- @authboundry/local exports
+LocalAuthorityError, serverExecutable, startLocalAuthority
+registerAgent references in @authboundry/local: 0

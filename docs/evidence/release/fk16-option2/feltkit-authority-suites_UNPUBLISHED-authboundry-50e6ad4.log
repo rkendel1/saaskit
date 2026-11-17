@@ -1,0 +1,114 @@
+TAP version 13
+# Subtest: FK-16 default (agentCallers unset): agent callers decide only as themselves [@authboundry/local 0.1.0, registerAgent present]
+ok 1 - FK-16 default (agentCallers unset): agent callers decide only as themselves [@authboundry/local 0.1.0, registerAgent present]
+  ---
+  duration_ms: 1644.803461
+  type: 'test'
+  ...
+# @authboundry/local 0.1.0, registerAgent present at /home/user/feltkit/node_modules/@authboundry/local/index.js
+# Subtest: FK-16 opt-in (agentCallers: "executor-grants"): shared executor grants only without per-agent delegation, always marked [@authboundry/local 0.1.0, registerAgent present]
+ok 2 - FK-16 opt-in (agentCallers: "executor-grants"): shared executor grants only without per-agent delegation, always marked [@authboundry/local 0.1.0, registerAgent present]
+  ---
+  duration_ms: 1622.676163
+  type: 'test'
+  ...
+# @authboundry/local 0.1.0, registerAgent present at /home/user/feltkit/node_modules/@authboundry/local/index.js
+# Subtest: FK-16: authority.local.agentCallers is validated when the application is defined
+ok 3 - FK-16: authority.local.agentCallers is validated when the application is defined
+  ---
+  duration_ms: 2.03598
+  type: 'test'
+  ...
+# Subtest: authority.local: started and set up by FeltKit, secrets in custody, decisions from each person's own grants, kept across a restart
+ok 4 - authority.local: started and set up by FeltKit, secrets in custody, decisions from each person's own grants, kept across a restart
+  ---
+  duration_ms: 2760.131189
+  type: 'test'
+  ...
+# Subtest: authority.local in the test environment: started on first use, not with the application
+ok 5 - authority.local in the test environment: started on first use, not with the application
+  ---
+  duration_ms: 1242.439991
+  type: 'test'
+  ...
+# Subtest: per-agent delegation: each app.agent decides as itself; a grant to one agent allows only it; revoking it stops only it
+ok 6 - per-agent delegation: each app.agent decides as itself; a grant to one agent allows only it; revoking it stops only it
+  ---
+  duration_ms: 3144.188832
+  type: 'test'
+  ...
+# Subtest: an @authboundry/local without per-agent delegation: agent grants and agent decisions are refused, naming the release; the executor's work as before
+ok 7 - an @authboundry/local without per-agent delegation: agent grants and agent decisions are refused, naming the release; the executor's work as before # SKIP the installed @authboundry/local has per-agent delegation (this checks the refusal on one that does not)
+  ---
+  duration_ms: 0.180324
+  type: 'test'
+  ...
+# Subtest: code policies: owner, shared-with and admin read; others are refused with the rule that was not met
+ok 8 - code policies: owner, shared-with and admin read; others are refused with the rule that was not met
+  ---
+  duration_ms: 247.776896
+  type: 'test'
+  ...
+# Subtest: record state and deny-overrides: a published document is not edited by its owner and not removed by anyone
+ok 9 - record state and deny-overrides: a published document is not edited by its owner and not removed by anyone
+  ---
+  duration_ms: 252.785152
+  type: 'test'
+  ...
+# Subtest: input decides: small refunds by the invoice owner, larger ones by an admin; allows of sensitive policies and every refusal are durable evidence
+ok 10 - input decides: small refunds by the invoice owner, larger ones by an admin; allows of sensitive policies and every refusal are durable evidence
+  ---
+  duration_ms: 192.782698
+  type: 'test'
+  ...
+# Subtest: the hook runs after the policies, sees their decision, and can still refuse
+ok 11 - the hook runs after the policies, sees their decision, and can still refuse
+  ---
+  duration_ms: 121.361335
+  type: 'test'
+  ...
+# Subtest: managed policies: a stored version takes effect on the next call without a restart, is refused when it names unknown functions, and leaves history
+ok 12 - managed policies: a stored version takes effect on the next call without a restart, is refused when it names unknown functions, and leaves history
+  ---
+  duration_ms: 153.868122
+  type: 'test'
+  ...
+# Subtest: simulation decides without running anything or recording evidence; the admin routes expose management
+ok 13 - simulation decides without running anything or recording evidence; the admin routes expose management
+  ---
+  duration_ms: 119.458646
+  type: 'test'
+  ...
+# Subtest: integration operations: the hook and managed policies apply through AppPort and ctx.integrations alike (D3)
+ok 14 - integration operations: the hook and managed policies apply through AppPort and ctx.integrations alike (D3)
+  ---
+  duration_ms: 182.979721
+  type: 'test'
+  ...
+# Subtest: agent delegation through AuthBoundry: allowed within a grant, never beyond it, and refused on the next call after revocation
+ok 15 - agent delegation through AuthBoundry: allowed within a grant, never beyond it, and refused on the next call after revocation
+  ---
+  duration_ms: 1367.422925
+  type: 'test'
+  ...
+# Subtest: an AppBoundry artifact enforces the code policies it carries, with the same answers; delegation cannot hold without an authority
+ok 16 - an AppBoundry artifact enforces the code policies it carries, with the same answers; delegation cannot hold without an authority
+  ---
+  duration_ms: 447.059884
+  type: 'test'
+  ...
+# Subtest: owner via a referenced record: the resource names a profile, the profile names the person
+ok 17 - owner via a referenced record: the resource names a profile, the profile names the person
+  ---
+  duration_ms: 1.495457
+  type: 'test'
+  ...
+1..17
+# tests 17
+# suites 0
+# pass 16
+# fail 0
+# cancelled 0
+# skipped 1
+# todo 0
+# duration_ms 30201.839943

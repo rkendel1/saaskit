@@ -23,7 +23,7 @@ already be in progress there.
 
 | ID | Item | Owner | Priority | Status | Evidence |
 |---|---|---|---|---|---|
-| FK-16 | **Cross-package release integrity** | FeltKit + AuthBoundry release process | **P1 — release gate** | Confirmed (0.3.31) | 0.3.31 requires `registerAgent` from an unpublished `@authboundry/local`; agent-initiated delegation decisions return `unavailable` (`dist/runtime/local-authority.js:38, 199-201`); the app's agent tests fail on 0.3.31; reverted to 0.3.30 |
+| FK-16 | **Cross-package release integrity** | FeltKit + AuthBoundry release process | **P1 — release gate** | **Correction prepared, verified, NOT published** (2026-11-17) | Confirmed in 0.3.31: `registerAgent` from an unpublished `@authboundry/local`; agent decisions `unavailable`; also two more unmet prerequisites (`@appport/services` inbox, `@feltdb/core` set membership). Option 2 candidate 0.3.32 (default unchanged, explicit `agentCallers: "executor-grants"` opt-in, prerequisites gate) passes the release dry run up to the npm-credential stop and the fresh-install gate: `docs/evidence/release/fk16-option2/` |
 | FK-04 (+FK-17) | System, operator and membership authority over tenant-scoped data | FeltKit + FeltDB + AuthBoundry | **P1** | Confirmed (0.3.30, unchanged 0.3.31) | `docs/AUTH.md` (closed without a tenant); FK-17: `tenancy.js` `invite`/`accept`/`addPrincipal` write without a policy point |
 | FK-09 | Workspace-bound agent sessions over MCP | FeltKit + AppPort MCP | **P1** | Confirmed (unchanged 0.3.31) | `server/mcp.js` has no tenant handling; switch rotates token; misleading stale-token error |
 | FK-02 | Provider-aware inbound webhooks | AppPort Services (+FeltKit) | **P1** | Confirmed (Services 0.19.0 is latest) | `WEBHOOK-SECURITY.md:78-139` |
@@ -88,6 +88,32 @@ documented outcome ("an agent that is not registered is a deny, never an error")
 
 **Acceptance:** this application upgrades to the next FeltKit release with no code change, and
 `tests/agents.test.ts` and acceptance step 17 pass on packages installed from the registry.
+
+### Status (2026-11-17): Option 2 chosen, candidate verified, not published
+
+Decision: an upgrade must not silently widen authority. 0.3.31's per-agent default stays; sharing the executor's
+grants is an application owner's explicit choice. The acceptance criterion above is therefore revised: with
+`@authboundry/local` 0.1.0, an application that relied on executor grants upgrades with **one deliberate
+configuration line** (`authority: { local: { agentCallers: "executor-grants" } }`), not with no change.
+
+| Behaviour | 0.3.32 candidate |
+|---|---|
+| Agent caller, no per-agent support, default | `unavailable` (as 0.3.31); the refusal names the opt-in |
+| Agent caller, opted in | executor's grants; decision and activity marked `compatibility: "executor-grants"`; readiness warns |
+| Decision naming an agent, no per-agent support | `unavailable`, never the executor |
+| Per-agent support installed | per-agent decides; the opt-in has no effect (readiness says so) |
+| Invalid `agentCallers` | `TypeError` when the app is defined |
+
+Evidence (`docs/evidence/release/fk16-option2/README.md`): FeltKit patch series
+`release/fk16/feltkit-0.3.32-option2-series/`; packed `@feltdb/feltkit` 0.3.32 sha512 `on5G0gHG…` (≠ 0.3.31);
+release dry run: SDK 737/747 pass, 0 fail, 10 capability-gated skips, `test:release` passes, `release:gate` stops
+only on npm credentials; fresh install: 0.3.30 33/33, 0.3.31 35/37, candidate default 35/37 (fails closed by
+design), candidate with opt-in **37/37**.
+
+Remaining before FK-16 is resolved: a maintainer applies the series, publishes 0.3.32 with the real release
+process, and the fresh-install gate passes against the **published** artifact. Then Option A (AuthBoundry server
+fix, then `@authboundry/local` with a new version and a core floor), then per-agent semantics as the deliberate
+path via a FeltKit minor with migration guidance.
 
 Per-agent delegation (an agent decides as itself, needing its own grant) is the better security model.
 This application should adopt it once the gate is met: owners would grant each agent, rather than
@@ -289,4 +315,6 @@ Three measurements, not a LOC target:
 | Date | Change | Evidence |
 |---|---|---|
 | 2026-11-16 | Plan created from the 0.3.30 evaluation | `FELTKIT_EXPERIENCE.md` §1–7 |
+| 2026-11-17 | FK-16 Option 2 (explicit `agentCallers` opt-in; default unchanged) implemented in a FeltKit candidate, release prerequisites gate added, packed 0.3.32 verified by hash, dry run and fresh install. Not published. First candidate (unconditional fallback) superseded: it reversed 0.3.31's tested refusal | `docs/evidence/release/fk16-option2/` |
+| 2026-11-16 | FK-16 "patched" run found to have tested unmodified 0.3.31 (artifact never contained the patch) | `docs/evidence/release/patched-0.3.31-fk16-local/CORRECTION.md` |
 | 2026-11-16 | Re-verified against 0.3.31: FK-07 and FK-12 resolved; FK-16 discovered (app stays on 0.3.30); FK-17 confirmed and merged into FK-04; release gate made P1; operator authority, workspace-bound agent sessions and the Stripe entry gate added | `FELTKIT_EXPERIENCE.md` §3.1 |

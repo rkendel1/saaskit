@@ -1,16 +1,28 @@
 /**
- * FK-16 release-integrity tests (FeltKit 0.3.31 family against the PUBLISHED @authboundry/local).
- * Run by release/verify.sh inside a scratch copy of the application, after the full application suite.
- * Expectations encode the corrected contract; on unpatched 0.3.31 the agent-caller test fails, which
- * is the reproduction of FK-16.
+ * FK-16 release-integrity tests for this application, against the INSTALLED FeltKit and the PUBLISHED
+ * @authboundry/local. Run by release/verify.sh --fk16 inside a scratch copy (FeltKit ≥ 0.3.31: the
+ * `agent` option and object onBehalfOf forms do not exist in 0.3.30).
+ *
+ * Expected behaviour follows the decision (docs/REMEDIATION_PLAN.md, FK-16, Option 2):
+ *   - default: an agent caller decides only as itself; with @authboundry/local 0.1.0 it is `unavailable`;
+ *   - authority.local.agentCallers: "executor-grants" (owner's opt-in, FeltKit ≥ 0.3.32): it shares the
+ *     executor's grants, and every such decision is marked compatibility: "executor-grants";
+ *   - a decision naming an agent is never decided as the executor; an agent never decides as another.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { addAgent, api, setup, workspace } from "./helpers.ts";
+import { app } from "../feltkit/app.ts";
 
 const probe = (api as any).zzfk16.decide;
+const local = (app.options as any).authority?.local;
+const OPTED_IN = typeof local === "object" && local?.agentCallers === "executor-grants";
+const FELTKIT = JSON.parse(readFileSync(new URL("../node_modules/@feltdb/feltkit/package.json", import.meta.url), "utf8")).version as string;
+const PER_AGENT = readFileSync(new URL("../node_modules/@authboundry/local/index.js", import.meta.url), "utf8").includes("registerAgent");
+const MODE = `FeltKit ${FELTKIT}, agentCallers ${OPTED_IN ? "executor-grants" : "default"}, per-agent ${PER_AGENT ? "installed" : "absent"}`;
 
-test("FK-07 regression: every documented onBehalfOf form resolves to the same principal", async () => {
+test(`FK-07 regression: every documented onBehalfOf form resolves to one principal; unrelated delegation denied [${MODE}]`, async () => {
   const t = await setup();
   try {
     const { c } = await workspace(t, "grace", "Acme");
@@ -21,51 +33,57 @@ test("FK-07 regression: every documented onBehalfOf form resolves to the same pr
     const g = await c.mutation(api.agents.delegateSpending, {});
     for (const form of ["plain", "prefixed", "person", "principal"]) {
       const d = await c.mutation(probe, { form });
-      assert.deepEqual([d.allowed, d.onBehalfOf, d.delegationId], [true, "user:grace", g.id], `${form} after the grant`);
+      assert.deepEqual([d.allowed, d.onBehalfOf, d.delegationId, d.compatibility ?? null], [true, "user:grace", g.id, null], `${form} after the grant`);
     }
-    // Unauthorized delegation stays denied: linus never delegated.
     const other = await c.mutation(probe, { form: "other" });
-    assert.deepEqual([other.allowed, other.outcome], [false, "deny"]);
+    assert.deepEqual([other.allowed, other.outcome], [false, "deny"], "linus never delegated");
   } finally {
     await t.close();
   }
 });
 
-test("FK-16: an agent caller decides with the delegation it has, and the evidence names who decided", async () => {
+test(`FK-16: an agent caller's decision follows the owner's explicit choice, and says so [${MODE}]`, async () => {
   const t = await setup();
   try {
     const { c, accountId } = await workspace(t, "grace", "Acme");
     const bot = await addAgent(t, accountId, "agent-ops");
     const before = await bot.mutation(probe, { form: "plain" });
-    assert.equal(before.allowed, false, "no delegation yet: refused");
-    assert.notEqual(before.outcome, "allow");
+    assert.equal(before.allowed, false, "no delegation: refused in every mode");
     await c.mutation(api.agents.delegateSpending, {});
     const d = await bot.mutation(probe, { form: "plain" });
-    // With @authboundry/local 0.1.0 (no registerAgent) the agent decides as the application's executor,
-    // the 0.3.30 contract; the decision says so. Never a silent per-agent claim.
-    assert.equal(d.outcome, "allow", `agent caller: ${d.outcome} ${d.reason ?? ""}`);
-    assert.equal(d.executor, "agent:saaskit");
-    assert.equal(d.proven, true, "the executor is proven by its agent credential");
+    if (PER_AGENT) {
+      assert.deepEqual([d.allowed, d.compatibility ?? null], [false, null], "per-agent installed: the executor's grant never allows an agent");
+    } else if (OPTED_IN) {
+      assert.deepEqual([d.allowed, d.outcome, d.executor, d.compatibility], [true, "allow", "agent:saaskit", "executor-grants"], `opt-in: ${d.reason}`);
+      assert.equal(d.proven, true);
+    } else {
+      assert.deepEqual([d.allowed, d.outcome, d.compatibility ?? null], [false, "unavailable", null], "default: fail closed");
+      assert.match(String(d.reason), /registerAgent/);
+    }
   } finally {
     await t.close();
   }
 });
 
-test("FK-16: asking explicitly to decide as a named agent fails explicitly when the authority cannot", async () => {
+test(`FK-16: a decision naming an agent never falls back to the executor [${MODE}]`, async () => {
   const t = await setup();
   try {
     const { c, accountId } = await workspace(t, "grace", "Acme");
     await addAgent(t, accountId, "agent-ops");
     await c.mutation(api.agents.delegateSpending, {});
     const d = await c.mutation(probe, { form: "plain", agent: "agent-ops" });
-    assert.deepEqual([d.allowed, d.outcome], [false, "unavailable"]);
-    assert.match(String(d.reason), /registerAgent/);
+    assert.equal(d.allowed, false);
+    assert.equal(d.compatibility ?? null, null);
+    if (!PER_AGENT) {
+      assert.equal(d.outcome, "unavailable");
+      assert.match(String(d.reason), /registerAgent/);
+    }
   } finally {
     await t.close();
   }
 });
 
-test("FK-16: an agent can never decide as another agent", async () => {
+test(`FK-16: an agent can never decide as another agent [${MODE}]`, async () => {
   const t = await setup();
   try {
     const { c, accountId } = await workspace(t, "grace", "Acme");
