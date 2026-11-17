@@ -1,0 +1,49 @@
+label: gate4-candidate3-0.3.32-default
+feltkit spec: /tmp/claude-0/-home-user/22c3d1ce-dd51-5a0f-b97d-491032c9360b/scratchpad/artifacts-c3/feltdb-feltkit-0.3.32.tgz
+with: /tmp/claude-0/-home-user/22c3d1ce-dd51-5a0f-b97d-491032c9360b/scratchpad/artifacts-c3/create-feltkit-0.3.32.tgz
+opt-in (agentCallers: executor-grants): no
+date: 2026-11-17T01:58:57Z
+registry: https://registry.npmjs.org/
++-- @authboundry/local@0.1.0
++-- @feltdb/feltkit@0.3.32
++-- @feltdb/webllm@0.21.0
++-- create-feltkit@0.3.32
+--- transitive
+@appport/authorization@1.2.0
+@appport/client@1.1.8
+@appport/core@1.8.0
+@appport/integration@1.2.5
+@appport/mcp@1.3.9
+@appport/mobile@1.0.12
+@appport/protocol@1.5.0
+@appport/resolver-client@0.3.0
+@appport/resolver-core@0.2.0
+@appport/schema@1.1.6
+@appport/sdk@1.9.0
+@appport/server@1.3.3
+@appport/services@0.18.0
+@appport/services@0.19.0
+@appport/transport-electron@1.0.16
+@appport/transport-http@1.1.8
+@appport/transport-inprocess@1.0.16
+@appport/transport-tauri@1.0.12
+@appport/transport-websocket@1.0.12
+@authboundry/core@1.19.0
+@authboundry/local@0.1.0
+@feltdb/core@0.21.0
+@feltdb/feltkit@0.3.32
+@feltdb/webllm@0.21.0
+create-feltkit@0.3.32
+--- @feltdb/feltkit in package-lock.json
+version 0.3.32
+resolved file:../claude-0/-home-user/22c3d1ce-dd51-5a0f-b97d-491032c9360b/scratchpad/artifacts-c3/feltdb-feltkit-0.3.32.tgz
+integrity sha512-MoDMg4GKGAEvoa7cu3yHd+8OHnwDSLr1KaeKCsRqnRLX0vzikR737cumXBs0SbtD8REIs3WR1ByeFwpBs9tw1Q==
+--- @feltdb/feltkit installed dist/runtime/local-authority.js sha256
+a48c4fe2bbc76cbd1184387f4904434b1f9754dffc4e284887a28cec84d3e5e8
+--- create-feltkit-0.3.32.tgz sha512
+sha512-AtCKHxAc0iQo3iyKdcSGGtk51GEj3w3JWfuQwojt9Fk9X9+EySH8K+qN6Gr+ois0eoO5SDjeknnuXhJhHcFH2A==
+--- @authboundry/local exports
+LocalAuthorityError, serverExecutable, startLocalAuthority
+registerAgent references in @authboundry/local: 0
+artifact identity: installed integrity matches the expected tarball
+artifact identity: installed dist contains "local-executor-grants-opt-in"

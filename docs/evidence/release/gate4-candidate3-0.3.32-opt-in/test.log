@@ -1,0 +1,232 @@
+TAP version 13
+# Subtest: acceptance: build, sell, meter, bill, delegate, upgrade, cancel — all auditable
+ok 1 - acceptance: build, sell, meter, bill, delegate, upgrade, cancel — all auditable
+  ---
+  duration_ms: 2794.898649
+  type: 'test'
+  ...
+# Subtest: an agent needs a workspace role, a plan that includes agents, AND a spending policy
+ok 2 - an agent needs a workspace role, a plan that includes agents, AND a spending policy
+  ---
+  duration_ms: 375.015884
+  type: 'test'
+  ...
+# Subtest: agent consumption is attributed, budgeted, approved by a person, and revocable
+ok 3 - agent consumption is attributed, budgeted, approved by a person, and revocable
+  ---
+  duration_ms: 2489.901733
+  type: 'test'
+  ...
+# Subtest: a single costly operation above the per-operation limit needs a person
+ok 4 - a single costly operation above the per-operation limit needs a person
+  ---
+  duration_ms: 983.167423
+  type: 'test'
+  ...
+# Subtest: the seed catalog is publishable, and broken catalogs say why
+ok 5 - the seed catalog is publishable, and broken catalogs say why
+  ---
+  duration_ms: 2.319813
+  type: 'test'
+  ...
+# Subtest: plans grant entitlements; lapsed subscriptions fall back to the default plan
+ok 6 - plans grant entitlements; lapsed subscriptions fall back to the default plan
+  ---
+  duration_ms: 0.76718
+  type: 'test'
+  ...
+# Subtest: overrides replace, grants and add-ons add, scoped and expired grants apply only where they should
+ok 7 - overrides replace, grants and add-ons add, scoped and expired grants apply only where they should
+  ---
+  duration_ms: 0.266413
+  type: 'test'
+  ...
+# Subtest: decisions: boolean, limit, rate, allowance, overage, caps
+ok 8 - decisions: boolean, limit, rate, allowance, overage, caps
+  ---
+  duration_ms: 0.457437
+  type: 'test'
+  ...
+# Subtest: rating: per-seat minimums, proration never credits more than was paid, overage blocks
+ok 9 - rating: per-seat minimums, proration never credits more than was paid, overage blocks
+  ---
+  duration_ms: 0.345575
+  type: 'test'
+  ...
+# Subtest: calendar periods clamp to month ends
+ok 10 - calendar periods clamp to month ends
+  ---
+  duration_ms: 0.398018
+  type: 'test'
+  ...
+# Subtest: the lifecycle refuses impossible transitions
+ok 11 - the lifecycle refuses impossible transitions
+  ---
+  duration_ms: 0.334569
+  type: 'test'
+  ...
+# Subtest: usage thresholds fire once each
+ok 12 - usage thresholds fire once each
+  ---
+  duration_ms: 0.266433
+  type: 'test'
+  ...
+# Subtest: catalog diffs describe commercial changes
+ok 13 - catalog diffs describe commercial changes
+  ---
+  duration_ms: 1.174761
+  type: 'test'
+  ...
+# Subtest: FK-07 regression: every documented onBehalfOf form resolves to one principal; unrelated delegation denied [FeltKit 0.3.32, agentCallers executor-grants, per-agent absent]
+ok 14 - FK-07 regression: every documented onBehalfOf form resolves to one principal; unrelated delegation denied [FeltKit 0.3.32, agentCallers executor-grants, per-agent absent]
+  ---
+  duration_ms: 1372.345749
+  type: 'test'
+  ...
+# Subtest: FK-16: an agent caller's decision follows the owner's explicit choice, and says so [FeltKit 0.3.32, agentCallers executor-grants, per-agent absent]
+ok 15 - FK-16: an agent caller's decision follows the owner's explicit choice, and says so [FeltKit 0.3.32, agentCallers executor-grants, per-agent absent]
+  ---
+  duration_ms: 1092.835444
+  type: 'test'
+  ...
+# Subtest: FK-16: a decision naming an agent never falls back to the executor [FeltKit 0.3.32, agentCallers executor-grants, per-agent absent]
+ok 16 - FK-16: a decision naming an agent never falls back to the executor [FeltKit 0.3.32, agentCallers executor-grants, per-agent absent]
+  ---
+  duration_ms: 1130.726801
+  type: 'test'
+  ...
+# Subtest: FK-16: an agent can never decide as another agent [FeltKit 0.3.32, agentCallers executor-grants, per-agent absent]
+ok 17 - FK-16: an agent can never decide as another agent [FeltKit 0.3.32, agentCallers executor-grants, per-agent absent]
+  ---
+  duration_ms: 1131.717645
+  type: 'test'
+  ...
+# Subtest: renewal bills the next period plus the ended period's overage, from the authoritative counters
+ok 18 - renewal bills the next period plus the ended period's overage, from the authoritative counters
+  ---
+  duration_ms: 2025.428519
+  type: 'test'
+  ...
+# Subtest: a failed renewal enters grace, then suspension (access falls back), and a new card recovers it
+ok 19 - a failed renewal enters grace, then suspension (access falls back), and a new card recovers it
+  ---
+  duration_ms: 1559.551668
+  type: 'test'
+  ...
+# Subtest: downgrades wait for the period end; cancellation keeps access until then, then returns to Free
+ok 20 - downgrades wait for the period end; cancellation keeps access until then, then returns to Free
+  ---
+  duration_ms: 1378.347968
+  type: 'test'
+  ...
+# Subtest: a trial grants the plan without a card, warns before it ends, and falls back without one
+ok 21 - a trial grants the plan without a card, warns before it ends, and falls back without one
+  ---
+  duration_ms: 341.86741
+  type: 'test'
+  ...
+# Subtest: catalog changes never rewrite existing customers: grandfathering, explicit migration, rollback
+ok 22 - catalog changes never rewrite existing customers: grandfathering, explicit migration, rollback
+  ---
+  duration_ms: 1016.417122
+  type: 'test'
+  ...
+# Subtest: an upgrade settles overage accrued under the old terms; it is never forgiven or billed twice
+ok 23 - an upgrade settles overage accrued under the old terms; it is never forgiven or billed twice
+  ---
+  duration_ms: 1196.051584
+  type: 'test'
+  ...
+# Subtest: concurrent consumers never overspend an allowance or lose an increment
+ok 24 - concurrent consumers never overspend an allowance or lose an increment
+  ---
+  duration_ms: 613.055513
+  type: 'test'
+  ...
+# Subtest: a repeated idempotency key records usage once, even when the repeats race
+ok 25 - a repeated idempotency key records usage once, even when the repeats race
+  ---
+  duration_ms: 352.859605
+  type: 'test'
+  ...
+# Subtest: reservations hold capacity, settle to actual use, and expire back
+ok 26 - reservations hold capacity, settle to actual use, and expire back
+  ---
+  duration_ms: 317.341555
+  type: 'test'
+  ...
+# Subtest: rate limits and resource limits are enforced from the plan
+ok 27 - rate limits and resource limits are enforced from the plan
+  ---
+  duration_ms: 383.994173
+  type: 'test'
+  ...
+# Subtest: server-reported usage is idempotent; operator adjustments are new events, audited
+ok 28 - server-reported usage is idempotent; operator adjustments are new events, audited
+  ---
+  duration_ms: 277.329577
+  type: 'test'
+  ...
+# Subtest: tenant isolation and role separation
+ok 29 - tenant isolation and role separation
+  ---
+  duration_ms: 262.376097
+  type: 'test'
+  ...
+# Subtest: webhooks with a forged, missing or stale signature are refused before anything is recorded
+ok 30 - webhooks with a forged, missing or stale signature are refused before anything is recorded
+  ---
+  duration_ms: 820.570717
+  type: 'test'
+  ...
+# Subtest: a redelivered event is applied once
+ok 31 - a redelivered event is applied once
+  ---
+  duration_ms: 1001.505195
+  type: 'test'
+  ...
+# Subtest: events delivered out of order reach the same state
+ok 32 - events delivered out of order reach the same state
+  ---
+  duration_ms: 868.084983
+  type: 'test'
+  ...
+# Subtest: a payment that does not match its invoice grants nothing and is flagged
+ok 33 - a payment that does not match its invoice grants nothing and is flagged
+  ---
+  duration_ms: 326.139956
+  type: 'test'
+  ...
+# Subtest: a declined card at checkout changes nothing; the purchase can be abandoned
+ok 34 - a declined card at checkout changes nothing; the purchase can be abandoned
+  ---
+  duration_ms: 823.992414
+  type: 'test'
+  ...
+# Subtest: upgrading with a saved card charges the prorated difference off-session; refunds settle by event
+ok 35 - upgrading with a saved card charges the prorated difference off-session; refunds settle by event
+  ---
+  duration_ms: 1269.165932
+  type: 'test'
+  ...
+# Subtest: reconciliation applies a payment the event stream missed
+ok 36 - reconciliation applies a payment the event stream missed
+  ---
+  duration_ms: 298.943285
+  type: 'test'
+  ...
+# Subtest: smoke: free limits, checkout to Pro through the payments component, new entitlements
+ok 37 - smoke: free limits, checkout to Pro through the payments component, new entitlements
+  ---
+  duration_ms: 1258.434893
+  type: 'test'
+  ...
+1..37
+# tests 37
+# suites 0
+# pass 37
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 47503.929357

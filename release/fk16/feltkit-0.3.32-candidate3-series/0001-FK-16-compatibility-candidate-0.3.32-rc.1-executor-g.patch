@@ -1,0 +1,370 @@
+From 1ccead624bae4a1041f68a23dd21a1711c052f86 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 16 Nov 2026 23:27:49 +0000
+Subject: [PATCH 1/7] FK-16 compatibility candidate (0.3.32-rc.1):
+ executor-grants for agent callers without registerAgent
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+NOT A RELEASE CANDIDATE: reverses 0.3.31's tested refusal (test/local-authority.test.ts
+'an @authboundry/local without per-agent delegation…' now fails). Pending a decision.
+---
+ CHANGELOG.md                                  | 23 ++++-
+ docs/GUARANTEES.md                            |  2 +-
+ docs/LOCAL-AUTHORITY.md                       |  6 ++
+ packages/sdk/package.json                     |  2 +-
+ .../sdk/src/runtime/application-authority.ts  | 13 ++-
+ packages/sdk/src/runtime/context.ts           | 10 ++
+ packages/sdk/src/runtime/local-authority.ts   | 22 ++++-
+ packages/sdk/src/runtime/runtime.ts           |  4 +-
+ packages/sdk/test/authority-compat.test.ts    | 99 +++++++++++++++++++
+ .../test/fixtures/authority/feltkit/work.ts   | 11 +++
+ 10 files changed, 179 insertions(+), 13 deletions(-)
+ create mode 100644 packages/sdk/test/authority-compat.test.ts
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 59e87ae..6b87486 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,6 +1,27 @@
+ # Changelog
+ 
+-## Unreleased
++## 0.3.32 (release candidate, unpublished): FK-16 authority compatibility
++
++0.3.31 was published while the per-agent delegation it uses needed an `@authboundry/local` release that does not
++exist (the only published one is 0.1.0, without `registerAgent`). With 0.1.0, every decision by an agent caller was
++`unavailable`, breaking applications whose agents relied on their executor's grants (supported through 0.3.30).
++
++- **Compatibility, not a new model.** With an `@authboundry/local` that has no `registerAgent`, no grant can name an
++  agent (such grants are refused), so only executor grants exist. An agent caller that names no agent is decided as
++  the executor, with its grants, exactly as through 0.3.30 (and as with a hosted AuthBoundry). The decision carries
++  `compatibility: "executor-grants"` and so does its activity record; the first such decision is logged.
++- **Unchanged and still refused:** a decision that names an agent (`agent: "x"`) is `unavailable` (it asked for
++  per-agent authority); an agent naming another agent is a deny; grants naming an agent and `ctx.authority.agents`
++  are `FAILED_PRECONDITION`. Nothing becomes an allow that was not one through 0.3.30.
++- **With an `@authboundry/local` that has per-agent delegation**, 0.3.31's behaviour applies unchanged: an agent
++  caller decides as itself and the executor's grants never apply to it. Moving to that model changes who has
++  authority for existing applications (owners must grant each agent); it will ship in a minor release with
++  migration guidance, not in a patch.
++- **Release integrity.** `test/authority-compat.test.ts` covers agent callers against the installed
++  `@authboundry/local` and never skips; `scripts/release-check.mjs` fails when the authority tests skip a
++  compatibility case or the packed artifact lacks this correction.
++
++## Unreleased (content released as 0.3.31; prerequisites below were NOT met at that release)
+ 
+ ### Release prerequisites for the entries below (not yet in package.json)
+ 
+diff --git a/docs/GUARANTEES.md b/docs/GUARANTEES.md
+index ad6dd45..9a16973 100644
+--- a/docs/GUARANTEES.md
++++ b/docs/GUARANTEES.md
+@@ -688,7 +688,7 @@ across environments. Nothing is copied from development.
+ | Primitive | Guarantee | Verified by |
+ |---|---|---|
+ | `ctx.authority.decide({ capability, onBehalfOf?, agent?, resource?, context? })` | AuthBoundry through the same `authBoundryAuthority` the platform uses. The asking principal is always `feltkit({ authority }).executor`; `onBehalfOf` names the requester, and an allow for it must echo that requester and a `delegation_id`. `onBehalfOf` is mapped as `ctx.authority.grants` maps the delegator (FRAME-GAP-11): an application principal id (no `:`, e.g. `"ada"`) goes through `authority.principal` (default `user:<id>`); an AuthBoundry principal (`<type>:<id>`, e.g. `"user:ada"`) is sent unchanged; `{ person }` always maps and `{ principal }` never does, for ids that break that rule. The decision's `onBehalfOf` is the principal asked about. Fails closed (unconfigured, unreachable, slow, malformed, inexact, missing credential). Credentials are custody references resolved per decision; each decision is in the activity log with its ids, never a credential | `test/application-platform.test.ts`, `test/local-authority.test.ts` (both forms against a real local AuthBoundry) |
+-| Per-agent delegation (`authority.local`) | Every `app.agent` is an AuthBoundry agent of the application (`agent:<id>`), registered at each start with its own credential in custody; agents registered at run time (`ctx.authority.agents.register`, needs `feltkit.authority.agents`, never by an agent) are registered again too. A grant may name an agent (`grants.grant({ agent })`) and then allows only that agent. **An agent caller decides as itself, always**, with its own credential: a grant to another agent or to the executor never allows it, and naming another agent is a deny. Anyone else decides as the executor unless it names a registered agent. An unregistered agent is a deny. Revoking a grant stops that grant only; revoking an agent stops all of its grants. With a hosted AuthBoundry, agent callers decide as the executor (no per-agent credentials) | `test/local-authority.test.ts` (real local AuthBoundry) |
++| Per-agent delegation (`authority.local`) | Every `app.agent` is an AuthBoundry agent of the application (`agent:<id>`), registered at each start with its own credential in custody; agents registered at run time (`ctx.authority.agents.register`, needs `feltkit.authority.agents`, never by an agent) are registered again too. A grant may name an agent (`grants.grant({ agent })`) and then allows only that agent. **An agent caller decides as itself, always**, with its own credential: a grant to another agent or to the executor never allows it, and naming another agent is a deny. Anyone else decides as the executor unless it names a registered agent. An unregistered agent is a deny. Revoking a grant stops that grant only; revoking an agent stops all of its grants. With a hosted AuthBoundry, agent callers decide as the executor (no per-agent credentials). With an `@authboundry/local` without per-agent delegation (0.1.0), an agent caller naming no agent decides as the executor, as through 0.3.30, marked `compatibility: "executor-grants"`; naming an agent is `unavailable` | `test/local-authority.test.ts` (real local AuthBoundry), `test/authority-compat.test.ts` (never skipped) |
+ | `ctx.integrations.invoke(capability, input)` | A declared integration operation from application code, as the caller, under the operation's own `access`; the input is validated against the operation's declared schema before anything is sent (`INVALID_ARGUMENT`), as AppPort validates a capability call; its credential resolved for the request only; the call recorded before and after; never in results, records or errors; rotation applies to the next call; a removed credential fails the call | `test/application-platform.test.ts` |
+ | The agent's catalog (`ctx.agent.catalog()` in actions, `runtime.agent.tools(principal)`; `ctx.agent.tools()` is its allowed subset, shaped as model tools) | Every capability the application and its services offer, not a model's tool list: for each, whether this principal may use it (`allowed`, the policy's decision) and how (`invoke`); for an integration operation, its `integration`, its input schema, and `readiness` (not ready while the base URL or the credential's value is missing, with what to fix; never a value). Permission and readiness are separate answers | `test/application-platform.test.ts` |
+ | Integration exposure (`expose: false`, per operation or integration) | The operation is not an AppPort capability: no session can call it on `/appport`, whatever it holds; application code still can, under `access`. A `verify` probe must stay exposed (verification runs it through AppPort), checked when the app is defined | `test/application-platform.test.ts` |
+diff --git a/docs/LOCAL-AUTHORITY.md b/docs/LOCAL-AUTHORITY.md
+index a37a9e7..d7e90bb 100644
+--- a/docs/LOCAL-AUTHORITY.md
++++ b/docs/LOCAL-AUTHORITY.md
+@@ -86,6 +86,12 @@ await ctx.authority.agents.register({ id: "mcp-bot" }); // an agent that arrives
+   - A person's function may name an agent (`agent: "scout"`), to ask "may Scout do this for me?".
+   - An agent that is not registered is a deny (`not an agent registered with this application's
+     authority`), never an error.
++- **Compatibility with `@authboundry/local` 0.1.0 (no per-agent delegation; FeltKit 0.3.32).** Without
++  `registerAgent` no agent can be registered and no grant can name an agent, so only the executor's grants
++  exist. An agent caller that names no agent is then decided as the executor, as through 0.3.30, and the
++  decision says so: `compatibility: "executor-grants"`. A decision that names an agent is `unavailable`, never
++  the executor. Installing an `@authboundry/local` with per-agent delegation switches agent callers to deciding
++  as themselves: owners must then grant each agent (see the migration note in the CHANGELOG).
+ - **Agents that arrive at run time** (`ctx.authority.agents.register({ id, name? })`, `list()`,
+   `revoke(id)`): only a caller holding `feltkit.authority.agents`, and never an agent, itself included
+   (registration is an operator's act, as AuthBoundry's own rule says; an agent able to register itself or
+diff --git a/packages/sdk/package.json b/packages/sdk/package.json
+index de94962..bccd84d 100644
+--- a/packages/sdk/package.json
++++ b/packages/sdk/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "@feltdb/feltkit",
+-  "version": "0.3.31",
++  "version": "0.3.32-rc.1",
+   "description": "FeltKit: one application, one FeltDB instance, one developer experience. SDK, runtime, CLI, and dashboard.",
+   "license": "MIT",
+   "type": "module",
+diff --git a/packages/sdk/src/runtime/application-authority.ts b/packages/sdk/src/runtime/application-authority.ts
+index 5242a0a..b72c34f 100644
+--- a/packages/sdk/src/runtime/application-authority.ts
++++ b/packages/sdk/src/runtime/application-authority.ts
+@@ -38,9 +38,9 @@ export interface AuthorityHost {
+   /** The application's agents (authority.local). */
+   agents?: ApplicationAuthority["agents"];
+   /** Who decides: null (the executor), an agent and its credential, or a refusal (runtime/local-authority.ts agentDecision). */
+-  agentFor?: (requested: string | undefined) => Promise<null | { principal: string; credential: string } | { refused: "deny" | "unavailable" | "invalid"; reason: string }>;
++  agentFor?: (requested: string | undefined) => Promise<null | { principal: string; credential: string } | { compatibility: "executor-grants" } | { refused: "deny" | "unavailable" | "invalid"; reason: string }>;
+   /** Records each decision (never a credential) as evidence. */
+-  record?: (entry: { capability: string; executor: string; onBehalfOf: string | null; decision: AuthorityDecision; durationMs: number }) => void | Promise<void>;
++  record?: (entry: { capability: string; executor: string; onBehalfOf: string | null; decision: AuthorityDecision; durationMs: number; compatibility?: "executor-grants" }) => void | Promise<void>;
+ }
+ 
+ const secretId = (ref: string) => ref.replace(/^credential-ref:/, "");
+@@ -107,7 +107,10 @@ export function applicationAuthority(host: AuthorityHost): ApplicationAuthority
+       const refused = (outcome: ApplicationAuthorityDecision["outcome"], reason: string): ApplicationAuthorityDecision => ({ allowed: false, outcome, decisionId: null, reason, capability: request.capability, executor, agent, onBehalfOf, delegationId: null, executorProof: { proven: false, method: "asserted", principal: executor, agentCredentialId: null } });
+       if (!config) return refused("unavailable", "No authority is configured (feltkit({ authority })), so nothing is allowed.");
+       // Which principal decides: the executor, or an agent with its own credential (never another's).
+-      const as = host.agentFor ? await host.agentFor(request.agent) : request.agent !== undefined ? { refused: "unavailable" as const, reason: "Decisions as an agent need the local authority (authority.local)." } : null;
++      const resolved = host.agentFor ? await host.agentFor(request.agent) : request.agent !== undefined ? { refused: "unavailable" as const, reason: "Decisions as an agent need the local authority (authority.local)." } : null;
++      // FK-16: an agent caller decided as the executor (no per-agent delegation installed) is marked, never silent.
++      const compatibility = resolved && "compatibility" in resolved ? resolved.compatibility : undefined;
++      const as = resolved && "compatibility" in resolved ? null : resolved;
+       if (as && "refused" in as) {
+         if (request.agent !== undefined) agent = String(request.agent);
+         return refused(as.refused, as.reason);
+@@ -148,8 +151,8 @@ export function applicationAuthority(host: AuthorityHost): ApplicationAuthority
+         return refused("unavailable", `The authority's credential is unavailable: ${(error as Error).message}`);
+       }
+       // Recorded before it is returned: the evidence (and the attempt it belongs to) has it first.
+-      await host.record?.({ capability: request.capability, executor, onBehalfOf, decision, durationMs: Date.now() - started });
+-      return { ...decision, capability: request.capability, executor, agent };
++      await host.record?.({ capability: request.capability, executor, onBehalfOf, decision, durationMs: Date.now() - started, ...(compatibility ? { compatibility } : {}) });
++      return { ...decision, capability: request.capability, executor, agent, ...(compatibility ? { compatibility } : {}) };
+     },
+   };
+ }
+diff --git a/packages/sdk/src/runtime/context.ts b/packages/sdk/src/runtime/context.ts
+index 5331b4d..009b0b5 100644
+--- a/packages/sdk/src/runtime/context.ts
++++ b/packages/sdk/src/runtime/context.ts
+@@ -253,6 +253,10 @@ export interface ApplicationAuthority {
+    * session) always decides as itself: `agent` may only name itself, and the executor's grants never
+    * apply to it. Anyone else decides as the executor unless it names an agent. An agent that is not
+    * registered is a deny, never an error.
++   * Compatibility (FK-16, 0.3.32): with an @authboundry/local that has no per-agent delegation (0.1.0), no
++   * grant can name an agent, so an agent caller that names none is decided as the executor, as through
++   * 0.3.30, and the decision carries `compatibility: "executor-grants"`. Naming an agent is then
++   * `unavailable`, never the executor.
+    */
+   decide(request: { capability: string; onBehalfOf?: OnBehalfOf; agent?: string; resource?: { type: string; id: string }; context?: Record<string, string> }): Promise<ApplicationAuthorityDecision>;
+ }
+@@ -288,6 +292,12 @@ export interface ApplicationAuthorityDecision {
+    * agent credential for this decision; otherwise `asserted` (the application named it). Never a secret.
+    */
+   executorProof: import("./authboundry.js").ExecutorProof;
++  /**
++   * Present only when an agent caller was decided as the executor because the installed
++   * @authboundry/local has no per-agent delegation: the 0.3.30 contract, kept for compatibility (FK-16).
++   * Absent whenever per-agent delegation decided, or the caller was not an agent.
++   */
++  compatibility?: "executor-grants";
+ }
+ 
+ /**
+diff --git a/packages/sdk/src/runtime/local-authority.ts b/packages/sdk/src/runtime/local-authority.ts
+index 90d726a..b3bc1a6 100644
+--- a/packages/sdk/src/runtime/local-authority.ts
++++ b/packages/sdk/src/runtime/local-authority.ts
+@@ -108,6 +108,8 @@ export class LocalAuthorityHost {
+   #starting: Promise<void> | null = null;
+   /** AuthBoundry agents registered in this process (their credentials are the authority's, renewed by it). */
+   readonly #agents = new Set<string>();
++  /** FK-16: the executor-grants compatibility path is logged once per process. */
++  #compatibilityWarned = false;
+ 
+   constructor(runtime: FeltKitRuntime) {
+     this.#runtime = runtime;
+@@ -245,7 +247,7 @@ export class LocalAuthorityHost {
+   async #registerAgents(authority: LocalAuthority, appAgents: Array<{ id: string; name: string; credential: string | null; onCredential: (value: string) => Promise<unknown> }>, read: (ref: string) => Promise<string | null>, keepFor: (agent: string) => (value: string) => Promise<unknown>): Promise<void> {
+     this.#agents.clear();
+     if (typeof authority.registerAgent !== "function") {
+-      if (appAgents.length) this.#runtime.logger.warn(`${NEEDS_AGENTS}; the installed one has none, so the decisions of ${appAgents.map((a) => a.id).join(", ")} are denied.`);
++      if (appAgents.length) this.#runtime.logger.warn(`${NEEDS_AGENTS}; the installed one has none, so ${appAgents.map((a) => a.id).join(", ")} are not registered: they are decided as the application's executor, with its grants, as through 0.3.30, and a decision that names an agent is refused.`);
+       return;
+     }
+     // One at a time, each on its own: an agent that cannot be registered (revoked, say) is denied, and nothing else.
+@@ -273,7 +275,7 @@ export class LocalAuthorityHost {
+    * null: the executor. An agent decision needs the local authority (only it holds agents' credentials);
+    * with a hosted AuthBoundry an agent caller decides as the executor, as before, and naming one is refused.
+    */
+-  async agentDecision(caller: Principal | null, requested: string | undefined): Promise<null | { principal: string; credential: string } | { refused: "deny" | "unavailable" | "invalid"; reason: string }> {
++  async agentDecision(caller: Principal | null, requested: string | undefined): Promise<null | { principal: string; credential: string } | { compatibility: "executor-grants" } | { refused: "deny" | "unavailable" | "invalid"; reason: string }> {
+     const config = this.#runtime.app.options.authority;
+     if (requested !== undefined && (typeof requested !== "string" || !requested.trim())) return { refused: "invalid", reason: "agent must be an agent id." };
+     const own = caller?.type === "agent" ? authorityAgentId(caller.id) : null;
+@@ -288,7 +290,21 @@ export class LocalAuthorityHost {
+     await this.ensure();
+     const authority = this.#authority;
+     if (!authority) return { refused: "unavailable", reason: `The local authority is not running${this.#status.error ? `: ${this.#status.error}` : ""}.` };
+-    if (typeof authority.registerAgent !== "function" || typeof authority.agentCredentialOf !== "function") return { refused: "unavailable", reason: `${NEEDS_AGENTS}.` };
++    if (typeof authority.registerAgent !== "function" || typeof authority.agentCredentialOf !== "function") {
++      // FK-16 compatibility (0.3.32): the installed @authboundry/local cannot hold per-agent credentials, so no
++      // grant can name an agent (grants refuse it, below) and only the executor's grants exist. An agent caller
++      // that names no agent is decided as the executor, the contract every agent caller had through 0.3.30 and
++      // still has with a hosted authority. The decision says so (`compatibility`). A decision that names an
++      // agent asked for per-agent authority, which this authority cannot give: refused, never the executor.
++      if (own && !wanted) {
++        if (!this.#compatibilityWarned) {
++          this.#compatibilityWarned = true;
++          this.#runtime.logger.warn(`${NEEDS_AGENTS}; agent callers (first: ${own}) are decided as the application's executor, with its grants, as through 0.3.30 (decision.compatibility = "executor-grants").`);
++        }
++        return { compatibility: "executor-grants" };
++      }
++      return { refused: "unavailable", reason: `${NEEDS_AGENTS}.` };
++    }
+     const credential = this.#agents.has(target) ? authority.agentCredentialOf(target) : null;
+     if (!credential) return { refused: "deny", reason: `${target} is not an agent registered with this application's authority.` };
+     return { principal: target, credential };
+diff --git a/packages/sdk/src/runtime/runtime.ts b/packages/sdk/src/runtime/runtime.ts
+index 02e7363..1e96773 100644
+--- a/packages/sdk/src/runtime/runtime.ts
++++ b/packages/sdk/src/runtime/runtime.ts
+@@ -653,7 +653,7 @@ export class FeltKitRuntime {
+       grants: this.localAuthority.grantsFor(principal, requestId),
+       agents: this.localAuthority.agentsFor(principal, requestId),
+       agentFor: (requested) => this.localAuthority.agentDecision(principal, requested),
+-      record: async ({ capability, executor, onBehalfOf, decision, durationMs }) => {
++      record: async ({ capability, executor, onBehalfOf, decision, durationMs, compatibility }) => {
+         await this.invocations.noteDecision(requestId, { capability, onBehalfOf, outcome: decision.outcome, decisionId: decision.decisionId, delegationId: decision.delegationId, executor: decision.executorProof });
+         this.activity.record({
+           kind: "auth",
+@@ -663,7 +663,7 @@ export class FeltKitRuntime {
+           principal: principal ? { id: principal.id, type: principal.type, roles: principal.roles } : null,
+           outcome: decision.allowed ? "success" : decision.outcome === "deny" ? "denied" : "error",
+           durationMs,
+-          detail: { capability, executor, onBehalfOf, outcome: decision.outcome, decisionId: decision.decisionId, delegationId: decision.delegationId, reason: decision.reason, executorProof: decision.executorProof },
++          detail: { capability, executor, onBehalfOf, outcome: decision.outcome, decisionId: decision.decisionId, delegationId: decision.delegationId, reason: decision.reason, executorProof: decision.executorProof, ...(compatibility ? { compatibility } : {}) },
+         } as never);
+       },
+     });
+diff --git a/packages/sdk/test/authority-compat.test.ts b/packages/sdk/test/authority-compat.test.ts
+new file mode 100644
+index 0000000..90f615e
+--- /dev/null
++++ b/packages/sdk/test/authority-compat.test.ts
+@@ -0,0 +1,99 @@
++/**
++ * FK-16 (0.3.32): agent callers against the INSTALLED @authboundry/local, never skipped.
++ *
++ * 0.3.31 shipped per-agent decisions that need registerAgent, absent from the only published
++ * @authboundry/local (0.1.0); every agent caller's decision became `unavailable`. These tests pin both
++ * contracts and run whichever the installed package provides:
++ *   - without registerAgent: the 0.3.30 executor-grants contract, marked `compatibility`;
++ *   - with it: 0.3.31's per-agent contract (an agent decides as itself; executor grants never apply).
++ * A missing @authboundry/local, or a missing AuthBoundry server, is a FAILURE here, not a skip:
++ * scripts/release-check.mjs relies on this file running.
++ */
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { createRequire } from "node:module";
++import { fileURLToPath } from "node:url";
++import { readFileSync } from "node:fs";
++import { InstanceFactory } from "../src/runtime/instance.js";
++import type { FeltKitRuntime } from "../src/runtime/runtime.js";
++import { startRuntime, tempProject } from "./helpers.js";
++
++const FIXTURE = fileURLToPath(new URL("./fixtures/authority", import.meta.url));
++const require = createRequire(import.meta.url);
++const localPath = fileURLToPath(import.meta.resolve("@authboundry/local")); // throws (fails the file) when not installed: never a skip
++const perAgent = readFileSync(localPath, "utf8").includes("registerAgent");
++const localVersion = (require(require.resolve("@authboundry/local/package.json")) as { version: string }).version;
++
++const ada = { id: "ada", type: "user" as const, roles: ["member"] };
++const mcpBot = { id: "mcp-bot", type: "agent" as const, roles: ["bot"] };
++const run = async (runtime: FeltKitRuntime, who: { id: string; type: "user" | "service" | "agent"; roles: string[] }, name: string, args: Record<string, unknown> = {}) => {
++  const r = await runtime.call(name, args, { principal: who, via: "test" });
++  if (!r.ok) throw Object.assign(new Error(r.error.message), { code: r.error.code });
++  return (r as { value: any }).value;
++};
++
++test(`FK-16: agent callers against the installed @authboundry/local ${localVersion} (${perAgent ? "per-agent" : "executor-grants compatibility"})`, async (t) => {
++  t.diagnostic(`@authboundry/local ${localVersion} at ${localPath}; registerAgent ${perAgent ? "present" : "absent"}`);
++  delete process.env.AUTHBOUNDRY_URL;
++  delete process.env.FELTKIT_CREDENTIAL_AUTHBOUNDRY_CHECK;
++  const { runtime } = await startRuntime({ projectDir: tempProject(FIXTURE), factory: new InstanceFactory() });
++  try {
++    const decide = (who: typeof ada | typeof mcpBot, form: string, capability = "tasks.create", agent?: string) => run(runtime, who, "work:decideForm", { form, capability, ...(agent ? { agent } : {}) });
++
++    // Nothing granted: nobody is allowed, agent or not.
++    assert.equal((await decide(mcpBot, "plain")).allowed, false, "no grant: an agent caller is not allowed");
++    assert.equal((await decide(ada, "plain")).allowed, false, "no grant: the executor is not allowed");
++
++    // Ada grants the application's executor (no agent named: the only grant 0.1.0 can make).
++    const g = await run(runtime, ada, "work:grant", { capabilities: ["tasks.create"] });
++
++    // onBehalfOf normalization (FRAME-GAP-11), for a person caller: every form, one principal, one delegation.
++    for (const form of ["plain", "prefixed", "person", "principal"]) {
++      const d = await decide(ada, form);
++      assert.deepEqual([d.allowed, d.onBehalfOf, d.delegationId, d.agent, d.compatibility], [true, "user:ada", g.id, null, null], `person, ${form}: ${d.reason}`);
++    }
++    // Only what was granted, and only Ada's grant.
++    assert.equal((await decide(ada, "plain", "tasks.delete")).allowed, false, "not granted");
++    assert.equal((await decide(ada, "other")).allowed, false, "Grace granted nothing");
++
++    if (!perAgent) {
++      // ── Compatibility (no registerAgent): the 0.3.30 contract, visibly marked ─────────────────────────
++      for (const form of ["plain", "prefixed", "person", "principal"]) {
++        const d = await decide(mcpBot, form);
++        assert.deepEqual([d.allowed, d.outcome, d.executor, d.agent, d.compatibility, d.onBehalfOf, d.delegationId], [true, "allow", "agent:localauth", null, "executor-grants", "user:ada", g.id], `agent caller, ${form}: ${d.outcome} ${d.reason}`);
++        assert.equal(d.proven, true, "the executor is proven by its own agent credential");
++      }
++      // No authority from elsewhere: not beyond the grant, not from another person.
++      assert.deepEqual([(await decide(mcpBot, "plain", "tasks.delete")).allowed, (await decide(mcpBot, "other")).allowed], [false, false]);
++      // An explicitly named agent never falls back to the executor.
++      for (const [who, agent] of [[mcpBot, "mcp-bot"], [ada, "mcp-bot"], [ada, "scout"]] as const) {
++        const d = await decide(who, "plain", "tasks.create", agent);
++        assert.deepEqual([d.allowed, d.outcome, d.compatibility], [false, "unavailable", null], `${who.id} naming ${agent}`);
++        assert.match(String(d.reason), /registerAgent/);
++      }
++      // An agent can never decide as another agent.
++      const other = await decide(mcpBot, "plain", "tasks.create", "scout");
++      assert.deepEqual([other.allowed, other.outcome], [false, "deny"]);
++      // Per-agent grants and agent registration stay refused: nothing new is possible.
++      await assert.rejects(run(runtime, ada, "work:grant", { capabilities: ["tasks.create"], agent: "mcp-bot" }), (e: any) => e.code === "FAILED_PRECONDITION" && /registerAgent/.test(e.message));
++      await assert.rejects(run(runtime, { id: "op", type: "user", roles: ["operator"] }, "work:registerAgent", { id: "mcp-bot" }), (e: any) => e.code === "FAILED_PRECONDITION");
++      // A declared app.agent run behaves the same (as through 0.3.30).
++      await run(runtime, ada, "work:ask", { agent: "scout", capability: "tasks.create" });
++      await runtime.settleAgents();
++      const notes = await run(runtime, ada, "work:notesList");
++      assert.deepEqual(notes.map((n: any) => [n.by, n.allowed, n.agent]), [["scout", true, null]], JSON.stringify(notes));
++      // Revocation stops the agent caller on the next call.
++      await run(runtime, ada, "work:revoke", { id: g.id });
++      const after = await decide(mcpBot, "plain");
++      assert.deepEqual([after.allowed, after.outcome], [false, "deny"], "revoked");
++    } else {
++      // ── Per-agent delegation installed: 0.3.31's contract, unchanged by the compatibility path ─────────
++      const d = await decide(mcpBot, "plain");
++      assert.equal(d.allowed, false, "the executor's grant never allows an agent caller");
++      assert.equal(d.compatibility, null, "no compatibility marker when per-agent delegation decides");
++      assert.match(String(d.reason), /not an agent registered|delegation_missing/);
++    }
++  } finally {
++    await runtime.close();
++  }
++});
+diff --git a/packages/sdk/test/fixtures/authority/feltkit/work.ts b/packages/sdk/test/fixtures/authority/feltkit/work.ts
+index 2c7debd..8969b73 100644
+--- a/packages/sdk/test/fixtures/authority/feltkit/work.ts
++++ b/packages/sdk/test/fixtures/authority/feltkit/work.ts
+@@ -24,3 +24,14 @@ export const decideAs = app.action({ access: "work.read", args: { onBehalfOf: s.
+ export const registerAgent = app.action({ access: "authenticated", args: { id: s.string() }, handler: async (ctx, a) => ctx.authority.agents.register(a) });
+ export const agents = app.action({ access: "authenticated", handler: async (ctx) => ctx.authority.agents.list() });
+ export const revokeAgent = app.action({ access: "authenticated", args: { id: s.string() }, handler: async (ctx, a) => ctx.authority.agents.revoke(a.id) });
++
++// FK-16 compatibility (test/authority-compat.test.ts): every documented onBehalfOf form, and what decided.
++const FORMS = { plain: "ada", prefixed: "user:ada", person: { person: "ada" }, principal: { principal: "user:ada" }, other: "grace" } as const;
++export const decideForm = app.action({
++  access: "work.read",
++  args: { form: s.enum(["plain", "prefixed", "person", "principal", "other"]), capability: s.string(), agent: s.optional(s.string()) },
++  handler: async (ctx, { form, capability, agent }) => {
++    const d = await ctx.authority.decide({ capability, onBehalfOf: FORMS[form], ...(agent ? { agent } : {}) });
++    return { allowed: d.allowed, outcome: d.outcome, agent: d.agent, executor: d.executor, onBehalfOf: d.onBehalfOf, reason: d.reason, delegationId: d.delegationId, compatibility: d.compatibility ?? null, proven: d.executorProof.proven };
++  },
++});
+-- 
+2.43.0
+

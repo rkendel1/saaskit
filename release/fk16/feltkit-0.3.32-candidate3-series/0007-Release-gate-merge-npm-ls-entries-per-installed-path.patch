@@ -1,0 +1,47 @@
+From 4c19dfaf956376f2bc399036756dac5eb1b0d92b Mon Sep 17 00:00:00 2001
+From: FK-16 candidate <noreply@anthropic.com>
+Date: Tue, 17 Nov 2026 01:54:12 +0000
+Subject: [PATCH 7/7] Release gate: merge npm ls entries per installed path;
+ detect symlinked copies on disk
+
+npm ls lists an installed copy once per dependent and only some entries carry resolved; the last entry
+won, so registry copies were reported as local. Found by the release dry run of 5b5f062.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01HaRh2AeLLCdd3FVn7atuCR
+---
+ scripts/release-prerequisites.mjs | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/scripts/release-prerequisites.mjs b/scripts/release-prerequisites.mjs
+index dda6819..dbf23da 100644
+--- a/scripts/release-prerequisites.mjs
++++ b/scripts/release-prerequisites.mjs
+@@ -234,12 +234,22 @@ const upstreamCopies = () => {
+   const copies = new Map();
+   const visit = (node) => {
+     for (const [name, dep] of Object.entries(node.dependencies ?? {})) {
+-      // A linked or file: copy is not a registry copy: kept, and reported as such (never skipped).
+-      if (dep.path && UPSTREAM.test(name)) copies.set(dep.path, { name, version: dep.version ?? null, path: dep.path, local: dep.link || String(dep.resolved ?? "").startsWith("file:") || !dep.resolved ? String(dep.resolved ?? (dep.link ? "link" : "no registry source")) : null });
++      // npm ls lists one installed copy once per dependent; only some of those entries carry `resolved`, so they
++      // are merged per path. A linked, file: or symlinked copy is not a registry copy: reported, never skipped.
++      if (dep.path && UPSTREAM.test(name)) {
++        const seen = copies.get(dep.path) ?? { name, version: dep.version ?? null, path: dep.path, resolved: null, link: false };
++        if (dep.resolved) seen.resolved = String(dep.resolved);
++        if (dep.link) seen.link = true;
++        copies.set(dep.path, seen);
++      }
+       visit(dep);
+     }
+   };
+   visit(JSON.parse(out));
++  for (const c of copies.values()) {
++    const symlink = existsSync(c.path) && lstatSync(c.path).isSymbolicLink();
++    c.local = c.link || symlink ? `a link (${symlink ? "symlink on disk" : "npm link"})` : !c.resolved ? "no registry source recorded" : c.resolved.startsWith("file:") ? c.resolved : !/^https?:\/\//.test(c.resolved) ? c.resolved : null;
++  }
+   return [...copies.values()].sort((a, b) => (a.name + a.path).localeCompare(b.name + b.path));
+ };
+ /** npm, with ONE explicitly resolved registry for every call, preferring the network over the cache. */
+-- 
+2.43.0
+
