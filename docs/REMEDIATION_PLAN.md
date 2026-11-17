@@ -24,6 +24,8 @@ already be in progress there.
 | ID | Item | Owner | Priority | Status | Evidence |
 |---|---|---|---|---|---|
 | FK-16 | **Cross-package release integrity** | FeltKit + AuthBoundry release process | **P1 — release gate** | **Correction prepared, verified, NOT published** (2026-11-17) | Confirmed in 0.3.31: `registerAgent` from an unpublished `@authboundry/local`; agent decisions `unavailable`; also two more unmet prerequisites (`@appport/services` inbox, `@feltdb/core` set membership). Option 2 candidate 0.3.32 (default unchanged, explicit `agentCallers: "executor-grants"` opt-in, prerequisites gate) passes the release dry run up to the npm-credential stop and the fresh-install gate: `docs/evidence/release/fk16-option2/` |
+| FK-18 | Intermittent FeltKit test: `policies.test.ts` "input decides…" | FeltKit tests | P2 | Confirmed, pre-existing (separate from FK-16) | Fails 3/40 on **unmodified 0.3.31**; its assertion `!JSON.stringify(decisions).includes("500")` also matches random ids/timestamps. A flaky test cannot gate a release: assert on the specific field instead |
+| FK-19 | Release test environment not isolated from ambient `FELTDB_*` variables | FeltKit release process | P2 | Confirmed (separate from FK-16) | With the container's `FELTDB_URL`/`MODE`/`APPLICATION_ID`/`NAMESPACE`/`ENVIRONMENT` set, 24 build/deploy/platform tests fail on both 0.3.31 and the candidate; all 49 in those files pass with them unset. The release run should start its tests from an explicit, clean environment rather than inherit the operator's shell |
 | FK-04 (+FK-17) | System, operator and membership authority over tenant-scoped data | FeltKit + FeltDB + AuthBoundry | **P1** | Confirmed (0.3.30, unchanged 0.3.31) | `docs/AUTH.md` (closed without a tenant); FK-17: `tenancy.js` `invite`/`accept`/`addPrincipal` write without a policy point |
 | FK-09 | Workspace-bound agent sessions over MCP | FeltKit + AppPort MCP | **P1** | Confirmed (unchanged 0.3.31) | `server/mcp.js` has no tenant handling; switch rotates token; misleading stale-token error |
 | FK-02 | Provider-aware inbound webhooks | AppPort Services (+FeltKit) | **P1** | Confirmed (Services 0.19.0 is latest) | `WEBHOOK-SECURITY.md:78-139` |
@@ -114,6 +116,15 @@ Remaining before FK-16 is resolved: a maintainer applies the series, publishes 0
 process, and the fresh-install gate passes against the **published** artifact. Then Option A (AuthBoundry server
 fix, then `@authboundry/local` with a new version and a core floor), then per-agent semantics as the deliberate
 path via a FeltKit minor with migration guidance.
+
+Not part of FK-16, recorded separately: FK-18 (an intermittent pre-existing test) and FK-19 (the release run
+inherits ambient `FELTDB_*` variables). Both make release results depend on luck or on the operator's shell; the
+fix belongs in FeltKit's own test and release scripts (assert precisely; run tests with an explicit environment),
+not in a separate release system. Cross-repository release operations are out of scope for FeltKit's gate.
+
+Before publication: one final independent review of the candidate (every executor-authority path constrained by
+the opt-in; readiness reflects the effective mode; the compatibility marker is durable and inspectable; the gate
+covers every prerequisite the package relies on; the registry comparison is deterministic).
 
 Per-agent delegation (an agent decides as itself, needing its own grant) is the better security model.
 This application should adopt it once the gate is met: owners would grant each agent, rather than
@@ -314,6 +325,7 @@ Three measurements, not a LOC target:
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-11-17 | FK-18 (flaky `policies.test.ts` assertion) and FK-19 (release tests inherit ambient `FELTDB_*`) recorded as separate findings, not part of FK-16; final independent review of the 0.3.32 candidate required before publication | `docs/evidence/release/fk16-option2/` |
 | 2026-11-16 | Plan created from the 0.3.30 evaluation | `FELTKIT_EXPERIENCE.md` §1–7 |
 | 2026-11-17 | FK-16 Option 2 (explicit `agentCallers` opt-in; default unchanged) implemented in a FeltKit candidate, release prerequisites gate added, packed 0.3.32 verified by hash, dry run and fresh install. Not published. First candidate (unconditional fallback) superseded: it reversed 0.3.31's tested refusal | `docs/evidence/release/fk16-option2/` |
 | 2026-11-16 | FK-16 "patched" run found to have tested unmodified 0.3.31 (artifact never contained the patch) | `docs/evidence/release/patched-0.3.31-fk16-local/CORRECTION.md` |
