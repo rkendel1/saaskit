@@ -1,0 +1,84 @@
+{
+  "prerequisites": [
+    {
+      "id": "authboundry.local-authority",
+      "package": "@authboundry/local + @authboundry/core",
+      "kind": "required",
+      "present": true,
+      "detail": "decision 200 deny (delegation_missing)",
+      "feature": "authority.local: a private AuthBoundry started beside the application, whose native server (@authboundry/core) makes every decision",
+      "whenAbsent": "applications with authority.local cannot decide anything"
+    },
+    {
+      "id": "authboundry.executor-proof",
+      "package": "@authboundry/local + @authboundry/core",
+      "kind": "optional",
+      "present": true,
+      "detail": "{\"agent_credential_id\":\"1aa85f014131254ad711d37c\",\"method\":\"agent_credential\",\"principal_id\":\"agent:feltkit-authority-probe\",\"proven\":true}",
+      "feature": "decisions prove the executor by its agent credential (executorProof.proven)",
+      "whenAbsent": "decisions still decide; executorProof reads asserted (GUARANTEES)"
+    },
+    {
+      "id": "authboundry-local.per-agent",
+      "package": "@authboundry/local",
+      "kind": "optional",
+      "present": false,
+      "detail": "missing registerAgent, revokeAgent, agentCredentialOf, agents",
+      "feature": "per-agent delegation: agent callers decide as themselves; grants name agents; ctx.authority.agents",
+      "whenAbsent": "agent callers are refused (unavailable) by default; an owner may opt in to shared executor grants with authority.local.agentCallers: \"executor-grants\" (wider authority, recorded as local-executor-grants-opt-in, readiness warns)",
+      "upstream": "authboundry 001ce42 (unreleased after 0.1.0)"
+    },
+    {
+      "id": "services.notification-inbox",
+      "package": "@appport/services",
+      "kind": "optional",
+      "present": false,
+      "detail": "missing inbox, unreadCount, markAllRead",
+      "feature": "ctx.services.notifications.page / unreadCount / markAllRead",
+      "whenAbsent": "those three operations refuse FAILED_PRECONDITION naming the release; list() works",
+      "upstream": "appport-services 110d72a (unreleased after 0.19.0)"
+    },
+    {
+      "id": "feltdb.set-membership",
+      "package": "@feltdb/core",
+      "kind": "optional",
+      "present": false,
+      "detail": "INVALID_QUERY: each condition requires a field and exactly one operator",
+      "feature": "ctx.db where … in (set-membership queries)",
+      "whenAbsent": "queries with `in` refuse FAILED_PRECONDITION naming the release; eq queries work",
+      "upstream": "flow_db 930bc64 (unreleased after 0.21.0)"
+    }
+  ],
+  "registry": null,
+  "compatibilityTests": null,
+  "artifact": {
+    "commit": "3debafa480b60a0d58fc2b126e9e21d8ee3c0499",
+    "dirty": [
+      "examples/invoices/package.json",
+      "examples/managed/package.json",
+      "examples/tasks/package.json",
+      "package-lock.json",
+      "packages/create/package.json",
+      "packages/sdk/package.json",
+      "packages/sdk/skills/.claude-plugin/marketplace.json",
+      "packages/sdk/skills/.claude-plugin/plugin.json"
+    ],
+    "versionOnlyChanges": true,
+    "version": "0.3.33",
+    "committedVersion": "0.3.32",
+    "file": "feltdb-feltkit-0.3.33.tgz",
+    "integrity": "sha512-VAHKgxjlq96r9KG8IJzyrUXxZIupNRsiQ3xUCeHBRrVXC8wVGyGB0/ijrwh5Wb8nKGvXz631PHoUDPEKOxo+cw==",
+    "sha256": "4be83e944333d2318241d71fa9d8a9731813ec889961425c55b6866d8e528c10",
+    "create": {
+      "file": "create-feltkit-0.3.33.tgz",
+      "version": "0.3.33",
+      "integrity": "sha512-fyeWWgHvm3+zeMWeAAHXPz4VqtqU1BKMm3c+VFyZn9X3jwkLoxvEJyNvj9avuFa03m3QU1xsdCsc46hrLQXBYg==",
+      "sha256": "af0d875b7b869598932ad242ad727fa76094ad71f8e5ddffed6575cc5550812e"
+    },
+    "contract": true,
+    "localAuthority": true,
+    "readiness": true,
+    "securityDoc": true
+  },
+  "problems": []
+}

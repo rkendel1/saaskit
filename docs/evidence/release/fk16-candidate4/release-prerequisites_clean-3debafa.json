@@ -1,0 +1,268 @@
+{
+  "prerequisites": [
+    {
+      "id": "authboundry.local-authority",
+      "package": "@authboundry/local + @authboundry/core",
+      "kind": "required",
+      "present": true,
+      "detail": "decision 200 deny (delegation_missing)",
+      "feature": "authority.local: a private AuthBoundry started beside the application, whose native server (@authboundry/core) makes every decision",
+      "whenAbsent": "applications with authority.local cannot decide anything"
+    },
+    {
+      "id": "authboundry.executor-proof",
+      "package": "@authboundry/local + @authboundry/core",
+      "kind": "optional",
+      "present": true,
+      "detail": "{\"agent_credential_id\":\"6ea3173b3f857321eada1e7c\",\"method\":\"agent_credential\",\"principal_id\":\"agent:feltkit-authority-probe\",\"proven\":true}",
+      "feature": "decisions prove the executor by its agent credential (executorProof.proven)",
+      "whenAbsent": "decisions still decide; executorProof reads asserted (GUARANTEES)"
+    },
+    {
+      "id": "authboundry-local.per-agent",
+      "package": "@authboundry/local",
+      "kind": "optional",
+      "present": false,
+      "detail": "missing registerAgent, revokeAgent, agentCredentialOf, agents",
+      "feature": "per-agent delegation: agent callers decide as themselves; grants name agents; ctx.authority.agents",
+      "whenAbsent": "agent callers are refused (unavailable) by default; an owner may opt in to shared executor grants with authority.local.agentCallers: \"executor-grants\" (wider authority, recorded as local-executor-grants-opt-in, readiness warns)",
+      "upstream": "authboundry 001ce42 (unreleased after 0.1.0)"
+    },
+    {
+      "id": "services.notification-inbox",
+      "package": "@appport/services",
+      "kind": "optional",
+      "present": false,
+      "detail": "missing inbox, unreadCount, markAllRead",
+      "feature": "ctx.services.notifications.page / unreadCount / markAllRead",
+      "whenAbsent": "those three operations refuse FAILED_PRECONDITION naming the release; list() works",
+      "upstream": "appport-services 110d72a (unreleased after 0.19.0)"
+    },
+    {
+      "id": "feltdb.set-membership",
+      "package": "@feltdb/core",
+      "kind": "optional",
+      "present": false,
+      "detail": "INVALID_QUERY: each condition requires a field and exactly one operator",
+      "feature": "ctx.db where … in (set-membership queries)",
+      "whenAbsent": "queries with `in` refuse FAILED_PRECONDITION naming the release; eq queries work",
+      "upstream": "flow_db 930bc64 (unreleased after 0.21.0)"
+    }
+  ],
+  "registry": {
+    "registry": "https://registry.npmjs.org/",
+    "copies": [
+      {
+        "name": "@appport/authorization",
+        "version": "1.2.0",
+        "path": "node_modules/@appport/authorization",
+        "status": "match",
+        "detail": "7 files"
+      },
+      {
+        "name": "@appport/client",
+        "version": "1.1.8",
+        "path": "node_modules/@appport/client",
+        "status": "match",
+        "detail": "47 files"
+      },
+      {
+        "name": "@appport/core",
+        "version": "1.8.0",
+        "path": "node_modules/@appport/core",
+        "status": "match",
+        "detail": "151 files"
+      },
+      {
+        "name": "@appport/integration",
+        "version": "1.2.5",
+        "path": "node_modules/@appport/integration",
+        "status": "match",
+        "detail": "95 files"
+      },
+      {
+        "name": "@appport/mcp",
+        "version": "1.3.9",
+        "path": "node_modules/@appport/mcp",
+        "status": "match",
+        "detail": "27 files"
+      },
+      {
+        "name": "@appport/mobile",
+        "version": "1.0.12",
+        "path": "node_modules/@appport/mobile",
+        "status": "match",
+        "detail": "7 files"
+      },
+      {
+        "name": "@appport/protocol",
+        "version": "1.5.0",
+        "path": "node_modules/@appport/protocol",
+        "status": "match",
+        "detail": "95 files"
+      },
+      {
+        "name": "@appport/resolver-client",
+        "version": "0.3.0",
+        "path": "node_modules/@appport/resolver-client",
+        "status": "match",
+        "detail": "13 files"
+      },
+      {
+        "name": "@appport/resolver-core",
+        "version": "0.2.0",
+        "path": "node_modules/@appport/resolver-core",
+        "status": "match",
+        "detail": "25 files"
+      },
+      {
+        "name": "@appport/schema",
+        "version": "1.1.6",
+        "path": "node_modules/@appport/schema",
+        "status": "match",
+        "detail": "27 files"
+      },
+      {
+        "name": "@appport/sdk",
+        "version": "1.9.0",
+        "path": "node_modules/@appport/sdk",
+        "status": "match",
+        "detail": "29 files"
+      },
+      {
+        "name": "@appport/server",
+        "version": "1.3.3",
+        "path": "node_modules/@appport/server",
+        "status": "match",
+        "detail": "35 files"
+      },
+      {
+        "name": "@appport/services",
+        "version": "0.19.0",
+        "path": "node_modules/@appport/services",
+        "status": "match",
+        "detail": "209 files"
+      },
+      {
+        "name": "@appport/services",
+        "version": "0.18.0",
+        "path": "node_modules/@authboundry/core/node_modules/@appport/services",
+        "status": "match",
+        "detail": "209 files"
+      },
+      {
+        "name": "@appport/testing",
+        "version": "1.2.6",
+        "path": "node_modules/@appport/testing",
+        "status": "match",
+        "detail": "19 files"
+      },
+      {
+        "name": "@appport/transport-electron",
+        "version": "1.0.16",
+        "path": "node_modules/@appport/transport-electron",
+        "status": "match",
+        "detail": "23 files"
+      },
+      {
+        "name": "@appport/transport-http",
+        "version": "1.1.8",
+        "path": "node_modules/@appport/transport-http",
+        "status": "match",
+        "detail": "7 files"
+      },
+      {
+        "name": "@appport/transport-inprocess",
+        "version": "1.0.16",
+        "path": "node_modules/@appport/transport-inprocess",
+        "status": "match",
+        "detail": "7 files"
+      },
+      {
+        "name": "@appport/transport-tauri",
+        "version": "1.0.12",
+        "path": "node_modules/@appport/transport-tauri",
+        "status": "match",
+        "detail": "7 files"
+      },
+      {
+        "name": "@appport/transport-websocket",
+        "version": "1.0.12",
+        "path": "node_modules/@appport/transport-websocket",
+        "status": "match",
+        "detail": "7 files"
+      },
+      {
+        "name": "@authboundry/core-linux-x64",
+        "version": "1.19.0",
+        "path": "node_modules/@authboundry/core-linux-x64",
+        "status": "match",
+        "detail": "2 files"
+      },
+      {
+        "name": "@authboundry/core",
+        "version": "1.19.0",
+        "path": "node_modules/@authboundry/core",
+        "status": "match",
+        "detail": "137 files"
+      },
+      {
+        "name": "@authboundry/local",
+        "version": "0.1.0",
+        "path": "node_modules/@authboundry/local",
+        "status": "match",
+        "detail": "4 files"
+      },
+      {
+        "name": "@feltdb/core",
+        "version": "0.21.0",
+        "path": "node_modules/@feltdb/core",
+        "status": "match",
+        "detail": "894 files"
+      },
+      {
+        "name": "@feltdb/webllm",
+        "version": "0.21.0",
+        "path": "node_modules/@feltdb/webllm",
+        "status": "match",
+        "detail": "8 files"
+      },
+      {
+        "name": "mailerport",
+        "version": "0.1.0",
+        "path": "node_modules/mailerport",
+        "status": "match",
+        "detail": "3 files"
+      }
+    ]
+  },
+  "compatibilityTests": {
+    "against": "packed artifact",
+    "tests": 7,
+    "pass": 7,
+    "fail": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "artifact": {
+    "commit": "3debafa480b60a0d58fc2b126e9e21d8ee3c0499",
+    "dirty": [],
+    "versionOnlyChanges": true,
+    "version": "0.3.32",
+    "committedVersion": "0.3.32",
+    "file": "feltdb-feltkit-0.3.32.tgz",
+    "integrity": "sha512-JRGDr0wJy21OEXYdK37qVE09pLxCzvJFVcG7zZfo/KkWhb6fKRB7Ljzjs1LnRzMda0t9RARIb6OaMNlUZdnhkQ==",
+    "sha256": "cbfe1cbf95e0c5ab2c301afef55ea45f514f0c1803f41bf73ae83eb9ef2250c2",
+    "create": {
+      "file": "create-feltkit-0.3.32.tgz",
+      "version": "0.3.32",
+      "integrity": "sha512-AtCKHxAc0iQo3iyKdcSGGtk51GEj3w3JWfuQwojt9Fk9X9+EySH8K+qN6Gr+ois0eoO5SDjeknnuXhJhHcFH2A==",
+      "sha256": "a9e6e4cb4cb802b6ba6750fd3aaff3547022b04a4241cebefa0c28bcff85b07a"
+    },
+    "contract": true,
+    "localAuthority": true,
+    "readiness": true,
+    "securityDoc": true
+  },
+  "problems": []
+}

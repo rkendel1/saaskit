@@ -1,0 +1,39 @@
+✓ required @authboundry/local + @authboundry/core: has authority.local: a private AuthBoundry started beside the application, whose native server (@authboundry/core) makes every decision [decision 200 deny (delegation_missing)]
+✓ optional @authboundry/local + @authboundry/core: has decisions prove the executor by its agent credential (executorProof.proven) [{"agent_credential_id":"bc470680690999e7139cd193","method":"agent_credential","principal_id":"agent:feltkit-authority-probe","proven":true}]
+– optional @authboundry/local: LACKS per-agent delegation: agent callers decide as themselves; grants name agents; ctx.authority.agents [missing registerAgent, revokeAgent, agentCredentialOf, agents]
+    when absent: agent callers are refused (unavailable) by default; an owner may opt in to shared executor grants with authority.local.agentCallers: "executor-grants" (wider authority, recorded as local-executor-grants-opt-in, readiness warns)
+    upstream: authboundry 001ce42 (unreleased after 0.1.0)
+– optional @appport/services: LACKS ctx.services.notifications.page / unreadCount / markAllRead [missing inbox, unreadCount, markAllRead]
+    when absent: those three operations refuse FAILED_PRECONDITION naming the release; list() works
+    upstream: appport-services 110d72a (unreleased after 0.19.0)
+– optional @feltdb/core: LACKS ctx.db where … in (set-membership queries) [INVALID_QUERY: each condition requires a field and exactly one operator]
+    when absent: queries with `in` refuse FAILED_PRECONDITION naming the release; eq queries work
+    upstream: flow_db 930bc64 (unreleased after 0.21.0)
+✓ registry  @appport/authorization@1.2.0 (node_modules/@appport/authorization): match 7 files
+✓ registry  @appport/client@1.1.8 (node_modules/@appport/client): match 47 files
+✓ registry  @appport/core@1.8.0 (node_modules/@appport/core): match 151 files
+✓ registry  @appport/integration@1.2.5 (node_modules/@appport/integration): match 95 files
+✓ registry  @appport/mcp@1.3.9 (node_modules/@appport/mcp): match 27 files
+✓ registry  @appport/mobile@1.0.12 (node_modules/@appport/mobile): match 7 files
+✓ registry  @appport/protocol@1.5.0 (node_modules/@appport/protocol): match 95 files
+✓ registry  @appport/resolver-client@0.3.0 (node_modules/@appport/resolver-client): match 13 files
+✓ registry  @appport/resolver-core@0.2.0 (node_modules/@appport/resolver-core): match 25 files
+✓ registry  @appport/schema@1.1.6 (node_modules/@appport/schema): match 27 files
+✓ registry  @appport/sdk@1.9.0 (node_modules/@appport/sdk): match 29 files
+✓ registry  @appport/server@1.3.3 (node_modules/@appport/server): match 35 files
+✓ registry  @appport/services@0.19.0 (node_modules/@appport/services): match 209 files
+✓ registry  @appport/services@0.18.0 (node_modules/@authboundry/core/node_modules/@appport/services): match 209 files
+✓ registry  @appport/testing@1.2.6 (node_modules/@appport/testing): match 19 files
+✓ registry  @appport/transport-electron@1.0.16 (node_modules/@appport/transport-electron): match 23 files
+✓ registry  @appport/transport-http@1.1.8 (node_modules/@appport/transport-http): match 7 files
+✓ registry  @appport/transport-inprocess@1.0.16 (node_modules/@appport/transport-inprocess): match 7 files
+✓ registry  @appport/transport-tauri@1.0.12 (node_modules/@appport/transport-tauri): match 7 files
+✓ registry  @appport/transport-websocket@1.0.12 (node_modules/@appport/transport-websocket): match 7 files
+✓ registry  @authboundry/core-linux-x64@1.19.0 (node_modules/@authboundry/core-linux-x64): match 2 files
+✓ registry  @authboundry/core@1.19.0 (node_modules/@authboundry/core): match 137 files
+✓ registry  @authboundry/local@0.1.0 (node_modules/@authboundry/local): match 4 files
+✓ registry  @feltdb/core@0.21.0 (node_modules/@feltdb/core): match 894 files
+✓ registry  @feltdb/webllm@0.21.0 (node_modules/@feltdb/webllm): match 8 files
+✓ registry  mailerport@0.1.0 (node_modules/mailerport): match 3 files
+compatibility tests: {"tests":7,"pass":7,"fail":0,"skipped":0,"todo":0}
+artifact: {"commit":"4c19dfaf956376f2bc399036756dac5eb1b0d92b","dirty":[],"version":"0.3.32","committedVersion":"0.3.32","file":"feltdb-feltkit-0.3.32.tgz","integrity":"sha512-MoDMg4GKGAEvoa7cu3yHd+8OHnwDSLr1KaeKCsRqnRLX0vzikR737cumXBs0SbtD8REIs3WR1ByeFwpBs9tw1Q==","sha256":"f5dc87edc03b0adff0c7428a35fd229ff7d08fe7dbbbe7f8c0258a8580e54fc4","contract":true,"localAuthority":true,"readiness":true,"securityDoc":true}
